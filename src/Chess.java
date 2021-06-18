@@ -1226,6 +1226,11 @@ public class Chess {
       return false;
    }
    
+   // returns turn ('w' or 'b')
+   public char getTurn() {
+      return turn ? 'w' : 'b';
+   }
+   
    // returns if the king is in check
    public boolean inCheck() { 
       long blockers = wPawns | wKnights | wBishops | wRooks | wQueens | wKing | bPawns | bKnights | bBishops | bRooks | bQueens | bKing;

@@ -18,16 +18,31 @@ import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.control.Label;
+import javafx.animation.PathTransition;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ButtonBar.ButtonData;
 import java.util.ArrayList;
+import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
 
 public class Board {
    private BorderPane pane = new BorderPane();
    
-   private StackPane stack = new StackPane();
+   private Chess state = new Chess();
+   private Move[] moves = state.moves();
+   
+   // players
+   private Map<Character,String> players = new HashMap<>(); 
    
    // grid of squares
    private GridPane grid = new GridPane();
+   
+   private Pane stack = new Pane();
+   
+   private double cellSize = 50;
    
    // squares
    private Square[] SQUARES = new Square[64];
@@ -36,10 +51,14 @@ public class Board {
    private Square targetSquare;
    
    private boolean moving = false;
-   private boolean dragging = false;
    
    // pieces
    private ArrayList<Piece> pieces = new ArrayList<>();
+   
+   private Piece selected; // selected piece
+   
+   // dialog box
+   private Dialog<String> dialog = new Dialog<>();
    
    // outside rectangles
    private Rectangle r1 = new Rectangle(25, 400);
@@ -56,9 +75,37 @@ public class Board {
    public Board() {
       for (int i = 0; i < 8; i ++) {
          for (int j = 0; j < 8; j ++) {
-            SQUARES[i * 8 + j] = new Square(j, 7 - i);
+            SQUARES[i * 8 + j] = new Square(j, 7 - i, i * 8 + j);
+            
+            char piece = state.toString().charAt(i * 9 + j);
+            
+            if (piece != '·') {
+               pieces.add(new Piece(piece, j, i));
+            }
          }
       }
+      
+      grid.setHgap(0);
+      grid.setVgap(0);
+      
+      players.put('w', "user");
+      players.put('b', "user");
+      
+      ButtonType queen = new ButtonType("Queen", ButtonData.OK_DONE);
+      ButtonType rook = new ButtonType("Rook", ButtonData.OK_DONE);
+      ButtonType bishop = new ButtonType("Bishop", ButtonData.OK_DONE);
+      ButtonType knight = new ButtonType("Knight", ButtonData.OK_DONE);
+      
+      dialog.getDialogPane().getButtonTypes().addAll(queen, rook, bishop, knight);
+      dialog.getDialogPane().setStyle("-fx-font-family: Times New Roman");
+      dialog.setResultConverter(
+         bt -> {
+            if (bt.getText() == "Knight") {
+               return "N";
+            } else {
+               return bt.getText();
+            }
+         });
    }
    
    /* Square Class */
@@ -66,17 +113,26 @@ public class Board {
    class Square {
       private int column = 0;
       private int row = 0;
+      private int index = 0;
+      private Color color;
       
-      private Rectangle r = new Rectangle(50, 50);
+      private Rectangle r = new Rectangle(cellSize, cellSize);
       
       private Square() {
-         r.setFill(Color.BURLYWOOD);
+         color = Color.BURLYWOOD;
+         fill();
       }
       
-      private Square(int column, int row) {
+      private Square(int column, int row, int index) {
          this.column = column;
          this.row = row;
-         r.setFill((row + column) % 2 == 0 ? Color.BURLYWOOD : Color.SIENNA);
+         this.index = index;
+         color = (row + column) % 2 == 0 ? Color.BURLYWOOD : Color.SIENNA;
+         fill();
+      }
+      
+      public void fill() {
+         r.setFill(color);
       }
       
       public int getColumn() {
@@ -87,34 +143,51 @@ public class Board {
          return row;
       }
       
+      public int getIndex() {
+         return index;
+      }
+      
       public void click() {
          r.setOnMouseClicked(
             e -> {
-               startSquare = this;
-               r.setFill(Color.YELLOW);
-            });
-      }
-      
-      public void drag() {
-         r.setOnMouseDragged(
-            e -> {
-               startSquare = this;
-               r.setFill(Color.YELLOW);
-               dragging = true;
+               selected = getPiece(this);
+               
+               if (selected != null) {
+                  startSquare = this;
+                  r.setFill(Color.YELLOW);
+               }
             });
       }
       
       public void press() {
          r.setOnMousePressed(
             e -> {
-               targetSquare = this;
+               if (this != startSquare) {
+                  targetSquare = this;
+                  startSquare.fill();
+                     
+                  Move[] m = getMoves();
+                     
+                  if (m.length > 0 && players.get(state.getTurn()) == "user") {
+                     move(m);
+                  } else {
+                     startSquare = null;
+                     targetSquare = null;
+                     selected = null;
+                  }
+               }
             });
       }
       
-      public void release() {
-         r.setOnMouseReleased(
+      public void drag() {
+         r.setOnMouseDragged(
             e -> {
-               targetSquare = this;
+               selected = getPiece(this);
+               
+               if (selected != null) {
+                  startSquare = this;
+                  r.setFill(Color.YELLOW);
+               }
             });
       }
       
@@ -127,43 +200,159 @@ public class Board {
       }
    }
    
+   private Piece getPiece(Square s) {
+      for (Piece piece : pieces) {
+         if (piece.getColumn() == s.getColumn() && piece.getRow() == s.getRow()) {
+            return piece;
+         }
+      }
+      
+      return null;
+   }
+   
+   private Move[] getMoves() {
+      ArrayList<Move> list = new ArrayList<>();
+      
+      for (Move m : moves) {
+         if (m.getStart() == startSquare.getIndex() && m.getTarget() == targetSquare.getIndex()) {
+            list.add(m);
+         }
+      }
+      
+      return list.toArray(new Move[0]);
+   }
+   
+   public void move(Move[] m) {
+      
+      moving = true;
+   
+      // handle capture
+      
+      Piece capturePiece;
+      
+      if (m[0].getEnPassant()) {
+         capturePiece = getPiece(SQUARES[8 * (7 - startSquare.getRow()) + targetSquare.getColumn()]);
+      } else {
+         capturePiece = getPiece(targetSquare);
+      }
+      
+      if (capturePiece != null) {
+         capturePiece.fade(
+            e -> {
+               stack.getChildren().remove(capturePiece.get());
+               pieces.remove(capturePiece);
+            });
+      }
+      
+      // move
+   
+      selected.move(targetSquare.getColumn(), targetSquare.getRow(), 
+         e -> {
+            if (m.length > 1) {
+               dialog.show();
+               dialog.setOnHidden(
+                  evt -> {
+                     for (int i = 0; i < 4; i ++) {
+                        if (Character.toUpperCase(m[i].getPromote()) == dialog.getResult().charAt(0)) {
+                           state = state.move(m[i]);
+                           moves = state.moves();
+                           selected.set(m[i].getPromote());
+                           startSquare = null;
+                           targetSquare = null;
+                           moving = false;
+                           selected = null;
+                           break;
+                        }
+                     }
+                  });
+            } else {
+               state = state.move(m[0]);
+               moves = state.moves();
+               startSquare = null;
+               targetSquare = null;
+               moving = false;
+               selected = null;
+            }
+         });
+         
+      // castling
+      
+      switch (m[0].getCastle()) {
+         case 'K':
+            getPiece(SQUARES[7]).move(5, 7, e -> {});
+            break;
+         case 'Q':
+            getPiece(SQUARES[0]).move(3, 7, e -> {});
+            break;
+         case 'k':
+            getPiece(SQUARES[63]).move(5, 0, e -> {});
+            break;
+         case 'q':
+            getPiece(SQUARES[56]).move(3, 0, e -> {});
+      }
+   }
+   
    public void update() {
       grid.addEventFilter(MouseEvent.MOUSE_CLICKED, 
          e -> {
-            if (moving || startSquare != null) {
+            if (moving || players.get(state.getTurn()) != "user") {
                e.consume();
             }
          }); // mouse click
-      
+         
       grid.addEventFilter(MouseEvent.MOUSE_DRAGGED, 
          e -> {
-            if (moving || startSquare != null) {
+            if (moving || players.get(state.getTurn()) != "user") {
+               e.consume();
+            } else if (startSquare != null) {
+               selected.setX(e.getX());
+               selected.setY(e.getY());
                e.consume();
             }
-         }); // mouse drag
-      
+         });
+         
       grid.addEventFilter(MouseEvent.MOUSE_PRESSED, 
          e -> {
             if (moving || startSquare == null) {
                e.consume();
-            } else if (dragging) {
-               // set piece position
-               e.consume();
             }
-         }); // mouse pressed
+         });
       
-      grid.addEventFilter(MouseEvent.MOUSE_RELEASED, 
+      grid.setOnMouseReleased(
          e -> {
-            if (moving || startSquare == null) {
-               e.consume();
+            if (!moving && startSquare != null) {
+               Square square = new Square();
+               
+               for (Square s : SQUARES) {
+                  int c = (int) (e.getX() / cellSize);
+                  int r = (int) (e.getY() / cellSize);
+                  
+                  if (s.getColumn() == c && s.getRow() == r) {
+                     square = s;
+                     break;
+                  }
+               }
+               
+               targetSquare = square;
+               startSquare.fill();
+                  
+               Move[] m = getMoves();
+                  
+               if (m.length > 0 && players.get(state.getTurn()) == "user") {
+                  move(m);
+               } else {
+                  selected.move(startSquare.getColumn(), startSquare.getRow(), evt -> {});
+                  startSquare = null;
+                  targetSquare = null;
+                  selected = null;
+               }
             }
-         }); // mouse released
+         });
       
       for (int i = 0; i < 64; i ++) {
          SQUARES[i].click();
          SQUARES[i].drag();
          SQUARES[i].press();
-         SQUARES[i].release();
       }
    }
    
@@ -179,10 +368,10 @@ public class Board {
       
       box1.setSpacing(30);
       box1.setAlignment(Pos.CENTER);
+      box1.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 20");
       
       for (int i = 8; i > 0; i --) {
          Label l = new Label("" + i);
-         l.setFont(Font.font("Times New Roman", 18));
          
          box1.getChildren().add(l);
       }
@@ -199,10 +388,10 @@ public class Board {
       
       box3.setSpacing(30);
       box3.setAlignment(Pos.CENTER);
+      box3.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 20");
       
       for (int i = 8; i > 0; i --) {
          Label l = new Label("" + i);
-         l.setFont(Font.font("Times New Roman", 18));
          l.setRotate(180);
          
          box3.getChildren().add(l);
@@ -220,10 +409,10 @@ public class Board {
       
       box2.setSpacing(41);
       box2.setAlignment(Pos.CENTER);
+      box2.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 20");
       
       for (int i = 0; i < 8; i ++) {
          Label l = new Label(String.valueOf((char) (97 + i)));
-         l.setFont(Font.font("Times New Roman", 20));
          l.setRotate(180);
          
          box2.getChildren().add(l);
@@ -241,10 +430,10 @@ public class Board {
       
       box4.setSpacing(41);
       box4.setAlignment(Pos.CENTER);
+      box4.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 20");
       
       for (int i = 0; i < 8; i ++) {
          Label l = new Label(String.valueOf((char) (97 + i)));
-         l.setFont(Font.font("Times New Roman", 20));
          
          box4.getChildren().add(l);
       }
@@ -259,15 +448,19 @@ public class Board {
    }
    
    public void display(GridPane rootPane) {
+      rootPane.setPadding(new Insets(50, 50, 50, 50));
+      
       outline();
       
       for (int i = 0; i < 64; i ++) {
          SQUARES[i].display();
       }
       
-      Pane stack = new Pane();
-      
       stack.getChildren().add(grid);
+      
+      for (Piece piece : pieces) {
+         stack.getChildren().add(piece.get());
+      }
       
       pane.setCenter(stack);
       
@@ -275,11 +468,11 @@ public class Board {
    }
    
    public void flip() {
-      pane.setRotate(180);
-   }
-   
-   public void resize(GridPane rootPane) {
+      pane.setRotate(pane.getRotate() + 180);
       
+      for (Piece piece : pieces) {
+         piece.flip();
+      }
    }
 }
 
