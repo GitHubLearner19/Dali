@@ -1175,7 +1175,7 @@ public class Chess {
          wKing, 
          bKing,
          turn, 
-         castle, 
+         castle.clone(), 
          epsquare,
          movesSinceCapture,
          fullMoves
@@ -1275,10 +1275,7 @@ public class Chess {
       char capture = m.getCapture();
       
       removePiece(startSquare, piece);
-      
-      if (capture != 'x') {
-         removePiece(targetSquare, capture);
-      }
+      removePiece(targetSquare, capture);
       
       if (promote == 'x') {
          addPiece(targetSquare, piece);
@@ -1334,6 +1331,14 @@ public class Chess {
             } else if (startSquare == 56 || targetSquare == 56) {
                castle[3] = false;
             }
+      }
+      
+      if (m.getEnPassant()) {
+         if (turn) {
+            removePiece(targetSquare - 8, 'p');
+         } else {
+            removePiece(targetSquare + 8, 'P');
+         }
       }
       
       epsquare = -1;
