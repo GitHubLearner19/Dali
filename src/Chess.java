@@ -1274,8 +1274,6 @@ public class Chess {
       char promote = m.getPromote();
       char capture = m.getCapture();
       
-      turn = !turn;
-      
       removePiece(startSquare, piece);
       
       if (capture != 'x') {
@@ -1347,6 +1345,8 @@ public class Chess {
             epsquare = targetSquare + 8;
          }
       }
+      
+      turn = !turn;
    }
    
    private boolean inCheckWhite(int k, long b) {
