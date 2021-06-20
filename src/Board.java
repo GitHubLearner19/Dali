@@ -254,7 +254,7 @@ public class Board {
                   evt -> {
                      for (int i = 0; i < 4; i ++) {
                         if (Character.toUpperCase(m[i].getPromote()) == dialog.getResult().charAt(0)) {
-                           state = state.move(m[i]);
+                           state.move(m[i]);
                            moves = state.moves();
                            selected.set(m[i].getPromote());
                            startSquare = null;
@@ -266,7 +266,7 @@ public class Board {
                      }
                   });
             } else {
-               state = state.move(m[0]);
+               state.move(m[0]);
                moves = state.moves();
                startSquare = null;
                targetSquare = null;

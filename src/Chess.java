@@ -44,6 +44,13 @@ public class Chess {
    
    private int fullMoves;
    
+   // history
+   private ArrayList<Move> history;
+   private boolean historyOn = false;
+   
+   // pgn
+   private ArrayList<String> pgn;
+   
    // compass directions
    
    private final static int NORT = 0;
@@ -210,6 +217,11 @@ public class Chess {
       this("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
    }
    
+   public Chess(boolean hOn) {
+      this();
+      historyOn = hOn;
+   }
+   
    public Chess(String fen) {
       if (fen.equals("empty")) {
          clear();
@@ -225,6 +237,11 @@ public class Chess {
       } else {
          set(fen);
       }
+   }
+   
+   public Chess(String fen, boolean hOn) {
+      this(fen);
+      historyOn = hOn;
    }
    
    private Chess(long wP, long bP, long wN, long bN, long wB, long bB, long wR, long bR, long wQ, long bQ, long wK, long bK, boolean turn, boolean[] castle, int ep, int m1, int m2) {
@@ -604,7 +621,8 @@ public class Chess {
       Move m1 = new Move(epsquare - 9, epsquare, 'n', 'x', 'p', false, true);
       
       if ((epbb >>> 9 & MASKH & wPawns) != 0) {
-         Chess c = move(m1);
+         Chess c = copy();
+         c.move(m1);
          c.setTurn(true);
          
          if(!c.inCheck()) {
@@ -615,7 +633,8 @@ public class Chess {
       Move m2 = new Move(epsquare - 7, epsquare, 'n', 'x', 'p', false, true);
       
       if ((epbb >>> 7 & MASKA & wPawns) != 0) {
-         Chess c = move(m2);
+         Chess c = copy();
+         c.move(m2);
          c.setTurn(true);
          
          if(!c.inCheck()) {
@@ -632,7 +651,8 @@ public class Chess {
       Move m1 = new Move(epsquare + 7, epsquare, 'n', 'x', 'P', false, true);
       
       if ((epbb << 7 & MASKH & bPawns) != 0) {
-         Chess c = move(m1);
+         Chess c = copy();
+         c.move(m1);
          c.setTurn(false);
          
          if(!c.inCheck()) {
@@ -643,7 +663,8 @@ public class Chess {
       Move m2 = new Move(epsquare + 9, epsquare, 'n', 'x', 'P', false, true);
       
       if ((epbb << 9 & MASKA & bPawns) != 0) {
-         Chess c = move(m2);
+         Chess c = copy();
+         c.move(m2);
          c.setTurn(false);
          
          if(!c.inCheck()) {
@@ -1138,79 +1159,160 @@ public class Chess {
       return turn ? whiteMoves() : blackMoves();
    }
    
-   // remove and return piece from board
-   private void removePiece(Map<Character, Long> piecebb, int square, char piece) {
-      piecebb.put(piece, piecebb.get(piece) & ~(1L << square));
+   // copy  
+   public Chess copy() {
+      return new Chess(
+         wPawns,
+         bPawns, 
+         wKnights, 
+         bKnights, 
+         wBishops, 
+         bBishops, 
+         wRooks, 
+         bRooks, 
+         wQueens, 
+         bQueens, 
+         wKing, 
+         bKing,
+         turn, 
+         castle, 
+         epsquare,
+         movesSinceCapture,
+         fullMoves
+         );
    }
    
-   // add piece from board and return if it was capture
-   private boolean addPiece(Map<Character, Long> piecebb, int square, char piece) {
-      char capture = pieceAt(square);
-      
-      piecebb.put(piece, piecebb.get(piece) | 1L << square);
-      
-      if (capture != 'x') {
-         removePiece(piecebb, square, capture);
-         return true;
+   // remove piece
+   
+   private void removePiece(int startSquare, char piece) {
+      switch (piece) {
+         case 'p':
+            bPawns &= ~(1L << startSquare);
+            break;
+         case 'n':
+            bKnights &= ~(1L << startSquare);
+            break;
+         case 'b':
+            bBishops &= ~(1L << startSquare);
+            break;
+         case 'r':
+            bRooks &= ~(1L << startSquare);
+            break;
+         case 'q':
+            bQueens &= ~(1L << startSquare);
+            break;
+         case 'k':
+            bKing &= ~(1L << startSquare);
+            break;
+         case 'P':
+            wPawns &= ~(1L << startSquare);
+            break;
+         case 'N':
+            wKnights &= ~(1L << startSquare);
+            break;
+         case 'B':
+            wBishops &= ~(1L << startSquare);
+            break;
+         case 'R':
+            wRooks &= ~(1L << startSquare);
+            break;
+         case 'Q':
+            wQueens &= ~(1L << startSquare);
+            break;
+         case 'K':
+            wKing &= ~(1L << startSquare);
       }
-      
-      return false;
    }
    
+   // add piece
+   
+   private void addPiece(int startSquare, char piece) {
+      switch (piece) {
+         case 'p':
+            bPawns |= (1L << startSquare);
+            break;
+         case 'n':
+            bKnights |= (1L << startSquare);
+            break;
+         case 'b':
+            bBishops |= (1L << startSquare);
+            break;
+         case 'r':
+            bRooks |= (1L << startSquare);
+            break;
+         case 'q':
+            bQueens |= (1L << startSquare);
+            break;
+         case 'k':
+            bKing |= (1L << startSquare);
+            break;
+         case 'P':
+            wPawns |= (1L << startSquare);
+            break;
+         case 'N':
+            wKnights |= (1L << startSquare);
+            break;
+         case 'B':
+            wBishops |= (1L << startSquare);
+            break;
+         case 'R':
+            wRooks |= (1L << startSquare);
+            break;
+         case 'Q':
+            wQueens |= (1L << startSquare);
+            break;
+         case 'K':
+            wKing |= (1L << startSquare);
+      }
+   }
+      
    // apply move to chess board
-   public Chess move(Move m) {
-      Map<Character, Long> piecebb = new HashMap<>();
-      
-      piecebb.put('P', wPawns);
-      piecebb.put('N', wKnights);
-      piecebb.put('B', wBishops);
-      piecebb.put('R', wRooks);
-      piecebb.put('Q', wQueens);
-      piecebb.put('K', wKing);
-      piecebb.put('p', bPawns);
-      piecebb.put('n', bKnights);
-      piecebb.put('b', bBishops);
-      piecebb.put('r', bRooks);
-      piecebb.put('q', bQueens);
-      piecebb.put('k', bKing);
-      
+   public void move(Move m) {
       int startSquare = m.getStart();
       int targetSquare = m.getTarget();
       char piece = pieceAt(startSquare);
       char promote = m.getPromote();
-      boolean capture;
-      boolean[] castle = this.castle.clone();
+      char capture = m.getCapture();
       
-      removePiece(piecebb, startSquare, piece);
+      turn = !turn;
+      
+      removePiece(startSquare, piece);
+      
+      if (capture != 'x') {
+         removePiece(targetSquare, capture);
+      }
       
       if (promote == 'x') {
-         capture = addPiece(piecebb, targetSquare, piece);
+         addPiece(targetSquare, piece);
       } else {
-         capture = addPiece(piecebb, targetSquare, promote);
+         addPiece(targetSquare, promote);
       }
+      
+      movesSinceCapture = capture == 'x' ? movesSinceCapture + 1 : 1;
+      fullMoves = turn ? fullMoves + 1 : fullMoves;
       
       switch (m.getCastle()) {
          case 'K':
-            removePiece(piecebb, 7, 'R');
-            addPiece(piecebb, 5, 'R');
+            removePiece(7, 'R');
+            addPiece(5, 'R');
             castle[0] = false;
             castle[1] = false;
             break;
          case 'Q':
-            removePiece(piecebb, 0, 'R');
-            addPiece(piecebb, 3, 'R');
+            removePiece(0, 'R');
+            addPiece(3, 'R');
             castle[0] = false;
             castle[1] = false;
             break;
          case 'k':
-            removePiece(piecebb, 63, 'r');
-            addPiece(piecebb, 61, 'r');
+            removePiece(63, 'r');
+            addPiece(61, 'r');
             castle[2] = false;
             castle[3] = false;
             break;
          case 'q':
-            removePiece(piecebb, 56, 'r');
-            addPiece(piecebb, 59, 'r');
+            removePiece(56, 'r');
+            addPiece(59, 'r');
             castle[2] = false;
             castle[3] = false;
             break;
@@ -1236,45 +1338,15 @@ public class Chess {
             }
       }
       
-      if (m.getEnPassant()) {
-         if (turn) {
-            removePiece(piecebb, targetSquare - 8, 'p');
-         } else {
-            removePiece(piecebb, targetSquare + 8, 'P');
-         }
-         
-         capture = true;
-      }
-      
-      int ep = -1;
+      epsquare = -1;
       
       if (m.getDoublePawnPush()) {
          if (turn) {
-            ep = targetSquare - 8;
+            epsquare = targetSquare - 8;
          } else {
-            ep = targetSquare + 8;
+            epsquare = targetSquare + 8;
          }
       }
-      
-      return new Chess(
-         piecebb.get('P'),
-         piecebb.get('p'), 
-         piecebb.get('N'), 
-         piecebb.get('n'), 
-         piecebb.get('B'), 
-         piecebb.get('b'), 
-         piecebb.get('R'), 
-         piecebb.get('r'), 
-         piecebb.get('Q'), 
-         piecebb.get('q'), 
-         piecebb.get('K'), 
-         piecebb.get('k'),
-         !turn, 
-         castle, 
-         ep,
-         capture ? 1 : movesSinceCapture + 1,
-         turn ? fullMoves : fullMoves + 1
-         );
    }
    
    private boolean inCheckWhite(int k, long b) {
@@ -1586,7 +1658,8 @@ public class Chess {
       }
       
       for (Move m : moves()) {
-         Chess c = move(m);
+         Chess c = copy();
+         c.move(m);
          num += c.perft(n - 1);
       }
       
@@ -1597,7 +1670,9 @@ public class Chess {
       String divide = "";
       
       for (Move m : moves()) {
-         divide += toSquare(m.getStart()) + toSquare(m.getTarget()) + " " + move(m).perft(n - 1) + "\n";
+         Chess c = copy();
+         c.move(m);
+         divide += toSquare(m.getStart()) + toSquare(m.getTarget()) + " " + c.perft(n - 1) + "\n";
       }
       
       return divide;
