@@ -574,11 +574,11 @@ public class Chess {
       ArrayList<Move> m = new ArrayList<>();
       
       if (castle[0] && (0x60L & ~(blockers | attacked)) == 0x60L) {
-         m.add(new Move(4, 6, 'K', 'x', false, false));
+         m.add(new Move(4, 6, 'K', 'x', 'x', false, false));
       }
       
       if (castle[1] && (0xCL & ~attacked) == 0xCL && (0xEL & ~blockers) == 0xEL) {
-         m.add(new Move(4, 2, 'Q', 'x', false, false));
+         m.add(new Move(4, 2, 'Q', 'x', 'x', false, false));
       }
       
       return m;
@@ -588,11 +588,11 @@ public class Chess {
       ArrayList<Move> m = new ArrayList<>();
       
       if (castle[2] && (0x6000000000000000L & ~(blockers | attacked)) == 0x6000000000000000L) {
-         m.add(new Move(60, 62, 'k', 'x', false, false));
+         m.add(new Move(60, 62, 'k', 'x', 'x', false, false));
       }
       
       if (castle[3] && (0xC00000000000000L & ~attacked) == 0xC00000000000000L && (0xE00000000000000L & ~blockers) == 0xE00000000000000L) {
-         m.add(new Move(60, 58, 'q', 'x', false, false));
+         m.add(new Move(60, 58, 'q', 'x', 'x', false, false));
       }
       
       return m;
@@ -601,7 +601,7 @@ public class Chess {
    private ArrayList<Move> getEPCapturesWhite(long epbb) {
       ArrayList<Move> m = new ArrayList<>();
       
-      Move m1 = new Move(epsquare - 9, epsquare, 'n', 'x', false, true);
+      Move m1 = new Move(epsquare - 9, epsquare, 'n', 'x', 'p', false, true);
       
       if ((epbb >>> 9 & MASKH & wPawns) != 0) {
          Chess c = move(m1);
@@ -612,7 +612,7 @@ public class Chess {
          }
       }
       
-      Move m2 = new Move(epsquare - 7, epsquare, 'n', 'x', false, true);
+      Move m2 = new Move(epsquare - 7, epsquare, 'n', 'x', 'p', false, true);
       
       if ((epbb >>> 7 & MASKA & wPawns) != 0) {
          Chess c = move(m2);
@@ -629,7 +629,7 @@ public class Chess {
    private ArrayList<Move> getEPCapturesBlack(long epbb) {
       ArrayList<Move> m = new ArrayList<>();
       
-      Move m1 = new Move(epsquare + 7, epsquare, 'n', 'x', false, true);
+      Move m1 = new Move(epsquare + 7, epsquare, 'n', 'x', 'P', false, true);
       
       if ((epbb << 7 & MASKH & bPawns) != 0) {
          Chess c = move(m1);
@@ -640,7 +640,7 @@ public class Chess {
          }
       }
       
-      Move m2 = new Move(epsquare + 9, epsquare, 'n', 'x', false, true);
+      Move m2 = new Move(epsquare + 9, epsquare, 'n', 'x', 'P', false, true);
       
       if ((epbb << 9 & MASKA & bPawns) != 0) {
          Chess c = move(m2);
@@ -660,28 +660,103 @@ public class Chess {
          if (Character.toUpperCase(entry.getValue().getPiece()) == 'P') {
             for (Integer target : occupiedSquares(entry.getValue().getMoves())) {
                if (target > 55) {
-                  m.add(new Move(entry.getKey(), target, 'n', 'N', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'B', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'R', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'Q', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'N', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'B', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'R', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'Q', 'x', false, false));
                } else if (target < 8) {
-                  m.add(new Move(entry.getKey(), target, 'n', 'n', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'b', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'r', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'q', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'n', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'b', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'r', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'q', 'x', false, false));
                } else if (Math.abs(target - entry.getKey()) == 16) {
-                  m.add(new Move(entry.getKey(), target, 'n', 'x', true, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'x', 'x', true, false));
                } else {
-                  m.add(new Move(entry.getKey(), target, 'n', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'x', 'x', false, false));
                }
             }
          } else {
             for (Integer target : occupiedSquares(entry.getValue().getMoves())) {
-               m.add(new Move(entry.getKey(), target, 'n', 'x', false, false));
+               m.add(new Move(entry.getKey(), target, 'n', 'x', 'x', false, false));
             }
          }
       }
    }
+   
+   public char[] targetsWhite() {
+      char[] targets = new char[64];
+      Arrays.fill(targets, 'x');
+      
+      ArrayList<Integer> pt = occupiedSquares(bPawns);
+      
+      for (Integer i : pt) {
+         targets[i] = 'p';
+      }
+      
+      ArrayList<Integer> nt = occupiedSquares(bKnights);
+      
+      for (Integer i : nt) {
+         targets[i] = 'n';
+      }
+      
+      ArrayList<Integer> bt = occupiedSquares(bBishops);
+      
+      for (Integer i : bt) {
+         targets[i] = 'b';
+      }
+      
+      ArrayList<Integer> rt = occupiedSquares(bRooks);
+      
+      for (Integer i : rt) {
+         targets[i] = 'r';
+      }
+      
+      ArrayList<Integer> qt = occupiedSquares(bQueens);
+      
+      for (Integer i : qt) {
+         targets[i] = 'q';
+      }
+      
+      return targets;
+   }
+   
+   public char[] targetsBlack() {
+      char[] targets = new char[64];
+      Arrays.fill(targets, 'x');
+      
+      ArrayList<Integer> pt = occupiedSquares(wPawns);
+      
+      for (Integer i : pt) {
+         targets[i] = 'P';
+      }
+      
+      ArrayList<Integer> nt = occupiedSquares(wKnights);
+      
+      for (Integer i : nt) {
+         targets[i] = 'N';
+      }
+      
+      ArrayList<Integer> bt = occupiedSquares(wBishops);
+      
+      for (Integer i : bt) {
+         targets[i] = 'B';
+      }
+      
+      ArrayList<Integer> rt = occupiedSquares(wRooks);
+      
+      for (Integer i : rt) {
+         targets[i] = 'R';
+      }
+      
+      ArrayList<Integer> qt = occupiedSquares(wQueens);
+      
+      for (Integer i : qt) {
+         targets[i] = 'Q';
+      }
+      
+      return targets;
+   }
+
    
    // get moves from start square
    public Move[] moves(String square) {
@@ -854,6 +929,14 @@ public class Chess {
       
       createMoves(m, moves);
       
+      // set capture squares
+      
+      char[] targets = targetsWhite();
+      
+      for (Move move : m) {
+         move.setCapture(targets[move.getTarget()]);
+      }
+      
       // en passant captures
       
       long epbb = 1L << epsquare;
@@ -1024,6 +1107,14 @@ public class Chess {
       // add moves
       
       createMoves(m, moves);
+      
+      // set capture squares
+      
+      char[] targets = targetsBlack();
+      
+      for (Move move : m) {
+         move.setCapture(targets[move.getTarget()]);
+      }
       
       // en passant captures
       
