@@ -21,19 +21,11 @@ public class TestChess {
       
       System.out.println("\n");
       
-      int depth = 4;
+      int depth = 2;
       
-      long startTime = System.currentTimeMillis();
-      
-      long nodes = chess.perft(depth);
-      
-      System.out.println("depth " + depth + ": " + nodes + " nodes");
-      
-      long elapsed = System.currentTimeMillis() - startTime;
-      
-      System.out.println("time elapsed: " + elapsed + "ms");
-      
-      System.out.println(nodes / elapsed + "kN/s");
+      long startTime = System.currentTimeMillis();      
+      System.out.println(chess.perftDivide(depth));
+
    }
 }
 
