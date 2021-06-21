@@ -44,6 +44,16 @@ public class Chess {
    
    private int fullMoves;
    
+   // history
+   private ArrayList<Move> history = new ArrayList<>();
+   private ArrayList<Boolean[]> totalCastles = new ArrayList<>();
+   private ArrayList<Integer> totalEpSquares = new ArrayList<>();
+   private ArrayList<Integer> totalHalfMoves = new ArrayList<>();
+   private boolean historyOn = false;
+   
+   // pgn
+   private ArrayList<String> pgn = new ArrayList<>();
+   
    // compass directions
    
    private final static int NORT = 0;
@@ -210,6 +220,11 @@ public class Chess {
       this("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
    }
    
+   public Chess(boolean hOn) {
+      this();
+      historyOn = hOn;
+   }
+   
    public Chess(String fen) {
       if (fen.equals("empty")) {
          clear();
@@ -225,6 +240,11 @@ public class Chess {
       } else {
          set(fen);
       }
+   }
+   
+   public Chess(String fen, boolean hOn) {
+      this(fen);
+      historyOn = hOn;
    }
    
    private Chess(long wP, long bP, long wN, long bN, long wB, long bB, long wR, long bR, long wQ, long bQ, long wK, long bK, boolean turn, boolean[] castle, int ep, int m1, int m2) {
@@ -574,11 +594,11 @@ public class Chess {
       ArrayList<Move> m = new ArrayList<>();
       
       if (castle[0] && (0x60L & ~(blockers | attacked)) == 0x60L) {
-         m.add(new Move(4, 6, 'K', 'x', false, false));
+         m.add(new Move(4, 6, 'K', 'x', 'x', false, false));
       }
       
       if (castle[1] && (0xCL & ~attacked) == 0xCL && (0xEL & ~blockers) == 0xEL) {
-         m.add(new Move(4, 2, 'Q', 'x', false, false));
+         m.add(new Move(4, 2, 'Q', 'x', 'x', false, false));
       }
       
       return m;
@@ -588,11 +608,11 @@ public class Chess {
       ArrayList<Move> m = new ArrayList<>();
       
       if (castle[2] && (0x6000000000000000L & ~(blockers | attacked)) == 0x6000000000000000L) {
-         m.add(new Move(60, 62, 'k', 'x', false, false));
+         m.add(new Move(60, 62, 'k', 'x', 'x', false, false));
       }
       
       if (castle[3] && (0xC00000000000000L & ~attacked) == 0xC00000000000000L && (0xE00000000000000L & ~blockers) == 0xE00000000000000L) {
-         m.add(new Move(60, 58, 'q', 'x', false, false));
+         m.add(new Move(60, 58, 'q', 'x', 'x', false, false));
       }
       
       return m;
@@ -601,10 +621,11 @@ public class Chess {
    private ArrayList<Move> getEPCapturesWhite(long epbb) {
       ArrayList<Move> m = new ArrayList<>();
       
-      Move m1 = new Move(epsquare - 9, epsquare, 'n', 'x', false, true);
+      Move m1 = new Move(epsquare - 9, epsquare, 'n', 'x', 'p', false, true);
       
       if ((epbb >>> 9 & MASKH & wPawns) != 0) {
-         Chess c = move(m1);
+         Chess c = copy();
+         c.move(m1);
          c.setTurn(true);
          
          if(!c.inCheck()) {
@@ -612,10 +633,11 @@ public class Chess {
          }
       }
       
-      Move m2 = new Move(epsquare - 7, epsquare, 'n', 'x', false, true);
+      Move m2 = new Move(epsquare - 7, epsquare, 'n', 'x', 'p', false, true);
       
       if ((epbb >>> 7 & MASKA & wPawns) != 0) {
-         Chess c = move(m2);
+         Chess c = copy();
+         c.move(m2);
          c.setTurn(true);
          
          if(!c.inCheck()) {
@@ -629,10 +651,11 @@ public class Chess {
    private ArrayList<Move> getEPCapturesBlack(long epbb) {
       ArrayList<Move> m = new ArrayList<>();
       
-      Move m1 = new Move(epsquare + 7, epsquare, 'n', 'x', false, true);
+      Move m1 = new Move(epsquare + 7, epsquare, 'n', 'x', 'P', false, true);
       
       if ((epbb << 7 & MASKH & bPawns) != 0) {
-         Chess c = move(m1);
+         Chess c = copy();
+         c.move(m1);
          c.setTurn(false);
          
          if(!c.inCheck()) {
@@ -640,10 +663,11 @@ public class Chess {
          }
       }
       
-      Move m2 = new Move(epsquare + 9, epsquare, 'n', 'x', false, true);
+      Move m2 = new Move(epsquare + 9, epsquare, 'n', 'x', 'P', false, true);
       
       if ((epbb << 9 & MASKA & bPawns) != 0) {
-         Chess c = move(m2);
+         Chess c = copy();
+         c.move(m2);
          c.setTurn(false);
          
          if(!c.inCheck()) {
@@ -660,28 +684,103 @@ public class Chess {
          if (Character.toUpperCase(entry.getValue().getPiece()) == 'P') {
             for (Integer target : occupiedSquares(entry.getValue().getMoves())) {
                if (target > 55) {
-                  m.add(new Move(entry.getKey(), target, 'n', 'N', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'B', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'R', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'Q', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'N', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'B', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'R', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'Q', 'x', false, false));
                } else if (target < 8) {
-                  m.add(new Move(entry.getKey(), target, 'n', 'n', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'b', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'r', false, false));
-                  m.add(new Move(entry.getKey(), target, 'n', 'q', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'n', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'b', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'r', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'q', 'x', false, false));
                } else if (Math.abs(target - entry.getKey()) == 16) {
-                  m.add(new Move(entry.getKey(), target, 'n', 'x', true, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'x', 'x', true, false));
                } else {
-                  m.add(new Move(entry.getKey(), target, 'n', 'x', false, false));
+                  m.add(new Move(entry.getKey(), target, 'n', 'x', 'x', false, false));
                }
             }
          } else {
             for (Integer target : occupiedSquares(entry.getValue().getMoves())) {
-               m.add(new Move(entry.getKey(), target, 'n', 'x', false, false));
+               m.add(new Move(entry.getKey(), target, 'n', 'x', 'x', false, false));
             }
          }
       }
    }
+   
+   public char[] targetsWhite() {
+      char[] targets = new char[64];
+      Arrays.fill(targets, 'x');
+      
+      ArrayList<Integer> pt = occupiedSquares(bPawns);
+      
+      for (Integer i : pt) {
+         targets[i] = 'p';
+      }
+      
+      ArrayList<Integer> nt = occupiedSquares(bKnights);
+      
+      for (Integer i : nt) {
+         targets[i] = 'n';
+      }
+      
+      ArrayList<Integer> bt = occupiedSquares(bBishops);
+      
+      for (Integer i : bt) {
+         targets[i] = 'b';
+      }
+      
+      ArrayList<Integer> rt = occupiedSquares(bRooks);
+      
+      for (Integer i : rt) {
+         targets[i] = 'r';
+      }
+      
+      ArrayList<Integer> qt = occupiedSquares(bQueens);
+      
+      for (Integer i : qt) {
+         targets[i] = 'q';
+      }
+      
+      return targets;
+   }
+   
+   public char[] targetsBlack() {
+      char[] targets = new char[64];
+      Arrays.fill(targets, 'x');
+      
+      ArrayList<Integer> pt = occupiedSquares(wPawns);
+      
+      for (Integer i : pt) {
+         targets[i] = 'P';
+      }
+      
+      ArrayList<Integer> nt = occupiedSquares(wKnights);
+      
+      for (Integer i : nt) {
+         targets[i] = 'N';
+      }
+      
+      ArrayList<Integer> bt = occupiedSquares(wBishops);
+      
+      for (Integer i : bt) {
+         targets[i] = 'B';
+      }
+      
+      ArrayList<Integer> rt = occupiedSquares(wRooks);
+      
+      for (Integer i : rt) {
+         targets[i] = 'R';
+      }
+      
+      ArrayList<Integer> qt = occupiedSquares(wQueens);
+      
+      for (Integer i : qt) {
+         targets[i] = 'Q';
+      }
+      
+      return targets;
+   }
+
    
    // get moves from start square
    public Move[] moves(String square) {
@@ -854,6 +953,14 @@ public class Chess {
       
       createMoves(m, moves);
       
+      // set capture squares
+      
+      char[] targets = targetsWhite();
+      
+      for (Move move : m) {
+         move.setCapture(targets[move.getTarget()]);
+      }
+      
       // en passant captures
       
       long epbb = 1L << epsquare;
@@ -1025,6 +1132,14 @@ public class Chess {
       
       createMoves(m, moves);
       
+      // set capture squares
+      
+      char[] targets = targetsBlack();
+      
+      for (Move move : m) {
+         move.setCapture(targets[move.getTarget()]);
+      }
+      
       // en passant captures
       
       long epbb = 1L << epsquare;
@@ -1047,79 +1162,161 @@ public class Chess {
       return turn ? whiteMoves() : blackMoves();
    }
    
-   // remove and return piece from board
-   private void removePiece(Map<Character, Long> piecebb, int square, char piece) {
-      piecebb.put(piece, piecebb.get(piece) & ~(1L << square));
+   // copy  
+   public Chess copy() {
+      return new Chess(
+         wPawns,
+         bPawns, 
+         wKnights, 
+         bKnights, 
+         wBishops, 
+         bBishops, 
+         wRooks, 
+         bRooks, 
+         wQueens, 
+         bQueens, 
+         wKing, 
+         bKing,
+         turn, 
+         castle.clone(), 
+         epsquare,
+         movesSinceCapture,
+         fullMoves
+         );
    }
    
-   // add piece from board and return if it was capture
-   private boolean addPiece(Map<Character, Long> piecebb, int square, char piece) {
-      char capture = pieceAt(square);
-      
-      piecebb.put(piece, piecebb.get(piece) | 1L << square);
-      
-      if (capture != 'x') {
-         removePiece(piecebb, square, capture);
-         return true;
+   // remove piece
+   
+   private void removePiece(int startSquare, char piece) {
+      switch (piece) {
+         case 'p':
+            bPawns &= ~(1L << startSquare);
+            break;
+         case 'n':
+            bKnights &= ~(1L << startSquare);
+            break;
+         case 'b':
+            bBishops &= ~(1L << startSquare);
+            break;
+         case 'r':
+            bRooks &= ~(1L << startSquare);
+            break;
+         case 'q':
+            bQueens &= ~(1L << startSquare);
+            break;
+         case 'k':
+            bKing &= ~(1L << startSquare);
+            break;
+         case 'P':
+            wPawns &= ~(1L << startSquare);
+            break;
+         case 'N':
+            wKnights &= ~(1L << startSquare);
+            break;
+         case 'B':
+            wBishops &= ~(1L << startSquare);
+            break;
+         case 'R':
+            wRooks &= ~(1L << startSquare);
+            break;
+         case 'Q':
+            wQueens &= ~(1L << startSquare);
+            break;
+         case 'K':
+            wKing &= ~(1L << startSquare);
       }
-      
-      return false;
    }
    
+   // add piece
+   
+   private void addPiece(int startSquare, char piece) {
+      switch (piece) {
+         case 'p':
+            bPawns |= (1L << startSquare);
+            break;
+         case 'n':
+            bKnights |= (1L << startSquare);
+            break;
+         case 'b':
+            bBishops |= (1L << startSquare);
+            break;
+         case 'r':
+            bRooks |= (1L << startSquare);
+            break;
+         case 'q':
+            bQueens |= (1L << startSquare);
+            break;
+         case 'k':
+            bKing |= (1L << startSquare);
+            break;
+         case 'P':
+            wPawns |= (1L << startSquare);
+            break;
+         case 'N':
+            wKnights |= (1L << startSquare);
+            break;
+         case 'B':
+            wBishops |= (1L << startSquare);
+            break;
+         case 'R':
+            wRooks |= (1L << startSquare);
+            break;
+         case 'Q':
+            wQueens |= (1L << startSquare);
+            break;
+         case 'K':
+            wKing |= (1L << startSquare);
+      }
+   }
+      
    // apply move to chess board
-   public Chess move(Move m) {
-      Map<Character, Long> piecebb = new HashMap<>();
-      
-      piecebb.put('P', wPawns);
-      piecebb.put('N', wKnights);
-      piecebb.put('B', wBishops);
-      piecebb.put('R', wRooks);
-      piecebb.put('Q', wQueens);
-      piecebb.put('K', wKing);
-      piecebb.put('p', bPawns);
-      piecebb.put('n', bKnights);
-      piecebb.put('b', bBishops);
-      piecebb.put('r', bRooks);
-      piecebb.put('q', bQueens);
-      piecebb.put('k', bKing);
-      
+   public void move(Move m) {
       int startSquare = m.getStart();
       int targetSquare = m.getTarget();
       char piece = pieceAt(startSquare);
       char promote = m.getPromote();
-      boolean capture;
-      boolean[] castle = this.castle.clone();
+      char capture = m.getCapture();
       
-      removePiece(piecebb, startSquare, piece);
+      if (historyOn) {
+         history.add(m);
+         pgn.add(toPGN(m));
+      }
+      
+      removePiece(startSquare, piece);
+      removePiece(targetSquare, capture);
       
       if (promote == 'x') {
-         capture = addPiece(piecebb, targetSquare, piece);
+         addPiece(targetSquare, piece);
       } else {
-         capture = addPiece(piecebb, targetSquare, promote);
+         addPiece(targetSquare, promote);
       }
+      
+      movesSinceCapture = capture == 'x' ? movesSinceCapture + 1 : 1;
+      totalHalfMoves.add(movesSinceCapture);
+      fullMoves = turn ? fullMoves : fullMoves + 1;
       
       switch (m.getCastle()) {
          case 'K':
-            removePiece(piecebb, 7, 'R');
-            addPiece(piecebb, 5, 'R');
+            removePiece(7, 'R');
+            addPiece(5, 'R');
             castle[0] = false;
             castle[1] = false;
             break;
          case 'Q':
-            removePiece(piecebb, 0, 'R');
-            addPiece(piecebb, 3, 'R');
+            removePiece(0, 'R');
+            addPiece(3, 'R');
             castle[0] = false;
             castle[1] = false;
             break;
          case 'k':
-            removePiece(piecebb, 63, 'r');
-            addPiece(piecebb, 61, 'r');
+            removePiece(63, 'r');
+            addPiece(61, 'r');
             castle[2] = false;
             castle[3] = false;
             break;
          case 'q':
-            removePiece(piecebb, 56, 'r');
-            addPiece(piecebb, 59, 'r');
+            removePiece(56, 'r');
+            addPiece(59, 'r');
             castle[2] = false;
             castle[3] = false;
             break;
@@ -1145,45 +1342,109 @@ public class Chess {
             }
       }
       
+      totalCastles.add(new Boolean[]{castle[0], castle[1], castle[2], castle[3]});
+      
       if (m.getEnPassant()) {
          if (turn) {
-            removePiece(piecebb, targetSquare - 8, 'p');
+            removePiece(targetSquare - 8, 'p');
          } else {
-            removePiece(piecebb, targetSquare + 8, 'P');
+            removePiece(targetSquare + 8, 'P');
          }
-         
-         capture = true;
       }
       
-      int ep = -1;
+      epsquare = -1;
       
       if (m.getDoublePawnPush()) {
          if (turn) {
-            ep = targetSquare - 8;
+            epsquare = targetSquare - 8;
          } else {
-            ep = targetSquare + 8;
+            epsquare = targetSquare + 8;
          }
       }
       
-      return new Chess(
-         piecebb.get('P'),
-         piecebb.get('p'), 
-         piecebb.get('N'), 
-         piecebb.get('n'), 
-         piecebb.get('B'), 
-         piecebb.get('b'), 
-         piecebb.get('R'), 
-         piecebb.get('r'), 
-         piecebb.get('Q'), 
-         piecebb.get('q'), 
-         piecebb.get('K'), 
-         piecebb.get('k'),
-         !turn, 
-         castle, 
-         ep,
-         capture ? 1 : movesSinceCapture + 1,
-         turn ? fullMoves : fullMoves + 1
-         );
+      totalEpSquares.add(epsquare);
+      
+      turn = !turn;
+   }
+   
+   // index of last capture
+   private int lastCapture() {
+      for (int i = history.size() - 1; i >= 0; i ++) {
+         if (history.get(i).getCapture() != 'x') {
+            return i;
+         }
+      }
+      
+      return 0;
+   }
+   
+   // undo last half move
+   public void undo() {
+      if (history.size() == 0) {
+         return;
+      }
+      Move m = history.remove(history.size() - 1);
+      char piece = pieceAt(m.getTarget());
+      
+      turn = !turn;
+      pgn.remove(history.size());
+      
+      removePiece(m.getTarget(), piece);
+      
+      if (m.getPromote() == 'x') {
+         addPiece(m.getStart(), piece);
+      } else {
+         addPiece(m.getStart(), turn ? 'P' : 'p');
+      }
+      
+      switch (m.getCastle()) {
+         case 'K':
+            removePiece(5, 'R');
+            addPiece(7, 'R');
+            break;
+         case 'Q':
+            removePiece(3, 'R');
+            addPiece(0, 'R');
+            break;
+         case 'k':
+            removePiece(61, 'r');
+            addPiece(63, 'r');
+            break;
+         case 'q':
+            removePiece(59, 'r');
+            addPiece(56, 'r');
+      }
+      
+      if (m.getEnPassant()) {
+         if (turn) {
+            addPiece(m.getTarget() - 8, m.getCapture());
+         } else {
+            addPiece(m.getTarget() + 8, m.getCapture());
+         }
+      } else {
+         addPiece(m.getTarget(), m.getCapture());
+      }
+      
+      fullMoves -= turn ? 0 : 1;
+      
+      if (history.size() > 0) {
+         totalCastles.remove(history.size());
+         Boolean[] tc = totalCastles.get(history.size() - 1);      
+         castle[0] = tc[0];
+         castle[1] = tc[1];
+         castle[2] = tc[2];
+         castle[3] = tc[3];
+         totalHalfMoves.remove(history.size());
+         movesSinceCapture = totalHalfMoves.get(history.size() - 1);
+         totalEpSquares.remove(history.size());
+         epsquare = totalEpSquares.get(history.size() - 1);
+      } else {
+         totalHalfMoves.remove(0);
+         movesSinceCapture = 0;
+         totalEpSquares.remove(0);
+         epsquare = -1;
+         totalCastles.remove(0);
+      }
    }
    
    private boolean inCheckWhite(int k, long b) {
@@ -1224,6 +1485,11 @@ public class Chess {
       }
       
       return false;
+   }
+   
+   // returns turn ('w' or 'b')
+   public char getTurn() {
+      return turn ? 'w' : 'b';
    }
    
    // returns if the king is in check
@@ -1282,6 +1548,99 @@ public class Chess {
    
    public static int toIndex(String square) {
       return (Character.getNumericValue(square.charAt(1)) - 1) * 8 + square.charAt(0) - 'a';
+   }
+   
+   // move to pgn
+   private String toPGN(Move m) {
+      String code = "";
+      char piece = Character.toUpperCase(pieceAt(m.getStart()));
+      
+      // castling
+      if (m.getCastle() != 'n') {
+         if (Character.toLowerCase(m.getCastle()) == 'k') {
+            return "O-O";
+         } else {
+            return "O-O-O";
+         }
+      }
+      
+      if (piece != 'P') {
+         code += piece;
+      }
+      
+      Move[] mvs = moves();
+      
+      boolean fileMatch = false;
+      boolean rankMatch = false;
+      boolean targetMatch = false;
+      
+      for (int i = 0; i < mvs.length; i ++) {
+         if (mvs[i].getStart() != m.getStart() && mvs[i].getTarget() == m.getTarget() && Character.toUpperCase(pieceAt(mvs[i].getStart())) == piece) {
+            if (mvs[i].getStart() % 8 == m.getStart() % 8) {
+               fileMatch = true;
+            } else if (mvs[i].getStart() / 8 == m.getStart() / 8) {
+               rankMatch = true;
+            }
+            
+            targetMatch = true;
+         }
+      }
+      
+      if (targetMatch || piece == 'P' && m.getCapture() != 'x') {
+         if (fileMatch && rankMatch) {
+            code += toSquare(m.getStart());
+         } else if (fileMatch) {
+            code += toSquare(m.getStart()).charAt(1);
+         } else {
+            code += toSquare(m.getStart()).charAt(0);
+         }
+      }
+      
+      if (m.getCapture() != 'x') {
+         code += 'x';
+      }
+      
+      code += toSquare(m.getTarget());
+      
+      if (m.getPromote() != 'x') {
+         code += "=" + Character.toUpperCase(m.getPromote());
+      }
+      
+      Chess c = copy();
+      c.move(m);
+      
+      if (c.inCheckmate()) {
+         code += "#";
+      } else if (c.inCheck()) {
+         code += "+";
+      }
+      
+      return code;
+   }
+   
+   // return pgn
+   public String toPGN() {
+      String code = "";
+      
+      for (int i = 0; i < pgn.size(); i ++) {
+         if (i % 2 == 0) {
+            code += (i / 2 + 1) + ". ";
+         }
+         
+         code += pgn.get(i) + " ";
+      }
+      
+      if (inCheckmate()) {
+         if (turn) {
+            code += "0-1";
+         } else {
+            code += "1-0";
+         }
+      } else if (inDraw()) {
+         code += "1/2-1/2"; 
+      }
+      
+      return code;
    }
    
    // set board with FEN
@@ -1490,7 +1849,8 @@ public class Chess {
       }
       
       for (Move m : moves()) {
-         Chess c = move(m);
+         Chess c = copy();
+         c.move(m);
          num += c.perft(n - 1);
       }
       
@@ -1501,7 +1861,9 @@ public class Chess {
       String divide = "";
       
       for (Move m : moves()) {
-         divide += toSquare(m.getStart()) + toSquare(m.getTarget()) + " " + move(m).perft(n - 1) + "\n";
+         Chess c = copy();
+         c.move(m);
+         divide += toSquare(m.getStart()) + toSquare(m.getTarget()) + " " + c.perft(n - 1) + "\n";
       }
       
       return divide;

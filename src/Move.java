@@ -7,8 +7,9 @@ public class Move {
    private int data;
    private static final char[] CASTLE = {'n', 'K', 'Q', 'k', 'q'};
    private static final char[] PROMOTE = {'x', 'N', 'B', 'R', 'Q', 'n', 'b', 'r', 'q'};
+   private static final char[] CAPTURE = {'x', 'P', 'N', 'B', 'R', 'Q', 'p', 'n', 'b', 'r', 'q'};
    
-   public Move(int start, int target, char castle, char promote, boolean dblp, boolean ep) {
+   public Move(int start, int target, char castle, char promote, char capture, boolean dblp, boolean ep) {
       data = start | (target << 6);
       
       switch (castle) {
@@ -51,8 +52,10 @@ public class Move {
             data |= 8 << 15;
       }
       
-      data |= (dblp ? 1 : 0) << 20;
-      data |= (ep ? 1 : 0) << 21;
+      setCapture(capture);
+      
+      data |= (dblp ? 1 : 0) << 24;
+      data |= (ep ? 1 : 0) << 25;
    }
    
    public Move(int data) {
@@ -82,15 +85,53 @@ public class Move {
    }
    
    public char getPromote() {
-      return PROMOTE[extract(15, 5)];
+      return PROMOTE[extract(15, 4)];
+   }
+   
+   public char getCapture() {
+      return CAPTURE[extract(19, 5)];
    }
    
    public boolean getDoublePawnPush() {
-      return BS.getBit(data, 20) == 1;
+      return BS.getBit(data, 24) == 1;
    }
    
    public boolean getEnPassant() {
-      return BS.getBit(data, 21) == 1;
+      return BS.getBit(data, 25) == 1;
+   }
+   
+   public void setCapture(char capture) {
+      switch (capture) {
+         case 'P':
+            data |= 1 << 19;
+            break;
+         case 'N':
+            data |= 2 << 19;
+            break;
+         case 'B':
+            data |= 3 << 19;
+            break;
+         case 'R':
+            data |= 4 << 19;
+            break;
+         case 'Q':
+            data |= 5 << 19;
+            break;
+         case 'p':
+            data |= 6 << 19;
+            break;
+         case 'n':
+            data |= 7 << 19;
+            break;
+         case 'b':
+            data |= 8 << 19;
+            break;
+         case 'r':
+            data |= 9 << 19;
+            break;
+         case 'q':
+            data |= 10 << 19;
+      }
    }
    
    @Override
