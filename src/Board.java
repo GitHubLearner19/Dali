@@ -26,13 +26,16 @@ import javafx.scene.control.ButtonBar.ButtonData;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.Map;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class Board {
+   private GridPane root;
+   private SideBar sidebar;
    private BorderPane pane = new BorderPane();
    
-   private Chess state = new Chess();
-   private Move[] moves = state.moves();
+   private Chess state;
+   private Move[] moves;
    
    // players
    private Map<Character,String> players = new HashMap<>(); 
@@ -72,18 +75,15 @@ public class Board {
    private VBox box3 = new VBox();
    private HBox box4 = new HBox();
    
-   public Board() {
+   public Board(GridPane root) {
+      this.root = root;
       for (int i = 0; i < 8; i ++) {
          for (int j = 0; j < 8; j ++) {
             SQUARES[i * 8 + j] = new Square(j, 7 - i, i * 8 + j);
-            
-            char piece = state.toString().charAt(i * 9 + j);
-            
-            if (piece != '·') {
-               pieces.add(new Piece(piece, j, i));
-            }
          }
       }
+      
+      set(new Chess(true));
       
       grid.setHgap(0);
       grid.setVgap(0);
@@ -106,6 +106,32 @@ public class Board {
                return bt.getText();
             }
          });
+   }
+   
+   public void setSideBar(SideBar s) {
+      sidebar = s;
+   }
+   
+   public void set(Chess chess) {
+      state = chess;
+      moves = chess.moves();
+      
+      if (sidebar != null) {
+         sidebar.update();
+      }
+      
+      stack.getChildren().clear();
+      pieces.clear();
+      
+      for (int i = 0; i < 8; i ++) {
+         for (int j = 0; j < 8; j ++) {
+            char piece = state.toString().charAt(i * 9 + j);
+            
+            if (piece != '·') {
+               pieces.add(new Piece(piece, j, i));
+            }
+         }
+      }
    }
    
    /* Square Class */
@@ -168,7 +194,7 @@ public class Board {
                      
                   Move[] m = getMoves();
                      
-                  if (m.length > 0 && players.get(state.getTurn()) == "user") {
+                  if (m.length > 0) {
                      move(m);
                   } else {
                      startSquare = null;
@@ -200,6 +226,10 @@ public class Board {
       }
    }
    
+   public Chess getState() {
+      return state;
+   }
+   
    private Piece getPiece(Square s) {
       for (Piece piece : pieces) {
          if (piece.getColumn() == s.getColumn() && piece.getRow() == s.getRow()) {
@@ -208,6 +238,14 @@ public class Board {
       }
       
       return null;
+   }
+   
+   public boolean isMoving() {
+      return moving;
+   }
+   
+   public void setMoving(boolean moving) {
+      this.moving = moving;
    }
    
    private Move[] getMoves() {
@@ -256,6 +294,10 @@ public class Board {
                         if (Character.toUpperCase(m[i].getPromote()) == dialog.getResult().charAt(0)) {
                            state.move(m[i]);
                            moves = state.moves();
+                           if (state.inDraw()) {
+                              moves = new Move[0];
+                           }
+                           sidebar.update();
                            selected.set(m[i].getPromote());
                            startSquare = null;
                            targetSquare = null;
@@ -268,6 +310,10 @@ public class Board {
             } else {
                state.move(m[0]);
                moves = state.moves();
+               if (state.inDraw()) {
+                  moves = new Move[0];
+               }
+               sidebar.update();
                startSquare = null;
                targetSquare = null;
                moving = false;
@@ -298,8 +344,8 @@ public class Board {
             if (moving || players.get(state.getTurn()) != "user") {
                e.consume();
             }
-         }); // mouse click
-         
+         });
+      
       grid.addEventFilter(MouseEvent.MOUSE_DRAGGED, 
          e -> {
             if (moving || players.get(state.getTurn()) != "user") {
@@ -338,7 +384,7 @@ public class Board {
                   
                Move[] m = getMoves();
                   
-               if (m.length > 0 && players.get(state.getTurn()) == "user") {
+               if (m.length > 0) {
                   move(m);
                } else {
                   selected.move(startSquare.getColumn(), startSquare.getRow(), evt -> {});
@@ -366,9 +412,9 @@ public class Board {
       
       r1.setFill(Color.SADDLEBROWN);
       
-      box1.setSpacing(30);
+      box1.setSpacing(28);
       box1.setAlignment(Pos.CENTER);
-      box1.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 20");
+      box1.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 18");
       
       for (int i = 8; i > 0; i --) {
          Label l = new Label("" + i);
@@ -386,9 +432,9 @@ public class Board {
       
       r3.setFill(Color.SADDLEBROWN);
       
-      box3.setSpacing(30);
+      box3.setSpacing(28);
       box3.setAlignment(Pos.CENTER);
-      box3.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 20");
+      box3.setStyle("-fx-font-family: Times New Roman; -fx-font-size: 18");
       
       for (int i = 8; i > 0; i --) {
          Label l = new Label("" + i);
@@ -447,24 +493,41 @@ public class Board {
       pane.setBottom(p4);
    }
    
-   public void display(GridPane rootPane) {
-      rootPane.setPadding(new Insets(50, 50, 50, 50));
+   private void displayStack() {
+      stack.getChildren().add(grid);
       
+      for (Piece piece : pieces) {
+         stack.getChildren().add(piece.get());
+         
+         if (pane.getRotate() % 360 == 180) {
+            piece.flip();
+         }
+      }
+   }
+   
+   public void display() {
       outline();
       
       for (int i = 0; i < 64; i ++) {
          SQUARES[i].display();
       }
       
-      stack.getChildren().add(grid);
-      
-      for (Piece piece : pieces) {
-         stack.getChildren().add(piece.get());
-      }
+      displayStack();
       
       pane.setCenter(stack);
       
-      rootPane.add(pane, 0, 0);
+      root.add(pane, 0, 0);
+   }
+   
+   public void undo() {
+      state.undo();
+      
+      if (players.get(state.getTurn()) != "user") {
+         state.undo();
+      }
+      
+      set(state);
+      displayStack();
    }
    
    public void flip() {

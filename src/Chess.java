@@ -45,11 +45,14 @@ public class Chess {
    private int fullMoves;
    
    // history
-   private ArrayList<Move> history;
+   private ArrayList<Move> history = new ArrayList<>();
+   private ArrayList<Boolean[]> totalCastles = new ArrayList<>();
+   private ArrayList<Integer> totalEpSquares = new ArrayList<>();
+   private ArrayList<Integer> totalHalfMoves = new ArrayList<>();
    private boolean historyOn = false;
    
    // pgn
-   private ArrayList<String> pgn;
+   private ArrayList<String> pgn = new ArrayList<>();
    
    // compass directions
    
@@ -1274,6 +1277,11 @@ public class Chess {
       char promote = m.getPromote();
       char capture = m.getCapture();
       
+      if (historyOn) {
+         history.add(m);
+         pgn.add(toPGN(m));
+      }
+      
       removePiece(startSquare, piece);
       removePiece(targetSquare, capture);
       
@@ -1284,7 +1292,8 @@ public class Chess {
       }
       
       movesSinceCapture = capture == 'x' ? movesSinceCapture + 1 : 1;
-      fullMoves = turn ? fullMoves + 1 : fullMoves;
+      totalHalfMoves.add(movesSinceCapture);
+      fullMoves = turn ? fullMoves : fullMoves + 1;
       
       switch (m.getCastle()) {
          case 'K':
@@ -1333,6 +1342,8 @@ public class Chess {
             }
       }
       
+      totalCastles.add(new Boolean[]{castle[0], castle[1], castle[2], castle[3]});
+      
       if (m.getEnPassant()) {
          if (turn) {
             removePiece(targetSquare - 8, 'p');
@@ -1351,7 +1362,89 @@ public class Chess {
          }
       }
       
+      totalEpSquares.add(epsquare);
+      
       turn = !turn;
+   }
+   
+   // index of last capture
+   private int lastCapture() {
+      for (int i = history.size() - 1; i >= 0; i ++) {
+         if (history.get(i).getCapture() != 'x') {
+            return i;
+         }
+      }
+      
+      return 0;
+   }
+   
+   // undo last half move
+   public void undo() {
+      if (history.size() == 0) {
+         return;
+      }
+      Move m = history.remove(history.size() - 1);
+      char piece = pieceAt(m.getTarget());
+      
+      turn = !turn;
+      pgn.remove(history.size());
+      
+      removePiece(m.getTarget(), piece);
+      
+      if (m.getPromote() == 'x') {
+         addPiece(m.getStart(), piece);
+      } else {
+         addPiece(m.getStart(), turn ? 'P' : 'p');
+      }
+      
+      switch (m.getCastle()) {
+         case 'K':
+            removePiece(5, 'R');
+            addPiece(7, 'R');
+            break;
+         case 'Q':
+            removePiece(3, 'R');
+            addPiece(0, 'R');
+            break;
+         case 'k':
+            removePiece(61, 'r');
+            addPiece(63, 'r');
+            break;
+         case 'q':
+            removePiece(59, 'r');
+            addPiece(56, 'r');
+      }
+      
+      if (m.getEnPassant()) {
+         if (turn) {
+            addPiece(m.getTarget() - 8, m.getCapture());
+         } else {
+            addPiece(m.getTarget() + 8, m.getCapture());
+         }
+      } else {
+         addPiece(m.getTarget(), m.getCapture());
+      }
+      
+      fullMoves -= turn ? 0 : 1;
+      
+      if (history.size() > 0) {
+         totalCastles.remove(history.size());
+         Boolean[] tc = totalCastles.get(history.size() - 1);      
+         castle[0] = tc[0];
+         castle[1] = tc[1];
+         castle[2] = tc[2];
+         castle[3] = tc[3];
+         totalHalfMoves.remove(history.size());
+         movesSinceCapture = totalHalfMoves.get(history.size() - 1);
+         totalEpSquares.remove(history.size());
+         epsquare = totalEpSquares.get(history.size() - 1);
+      } else {
+         totalHalfMoves.remove(0);
+         movesSinceCapture = 0;
+         totalEpSquares.remove(0);
+         epsquare = -1;
+         totalCastles.remove(0);
+      }
    }
    
    private boolean inCheckWhite(int k, long b) {
@@ -1455,6 +1548,99 @@ public class Chess {
    
    public static int toIndex(String square) {
       return (Character.getNumericValue(square.charAt(1)) - 1) * 8 + square.charAt(0) - 'a';
+   }
+   
+   // move to pgn
+   private String toPGN(Move m) {
+      String code = "";
+      char piece = Character.toUpperCase(pieceAt(m.getStart()));
+      
+      // castling
+      if (m.getCastle() != 'n') {
+         if (Character.toLowerCase(m.getCastle()) == 'k') {
+            return "O-O";
+         } else {
+            return "O-O-O";
+         }
+      }
+      
+      if (piece != 'P') {
+         code += piece;
+      }
+      
+      Move[] mvs = moves();
+      
+      boolean fileMatch = false;
+      boolean rankMatch = false;
+      boolean targetMatch = false;
+      
+      for (int i = 0; i < mvs.length; i ++) {
+         if (mvs[i].getStart() != m.getStart() && mvs[i].getTarget() == m.getTarget() && Character.toUpperCase(pieceAt(mvs[i].getStart())) == piece) {
+            if (mvs[i].getStart() % 8 == m.getStart() % 8) {
+               fileMatch = true;
+            } else if (mvs[i].getStart() / 8 == m.getStart() / 8) {
+               rankMatch = true;
+            }
+            
+            targetMatch = true;
+         }
+      }
+      
+      if (targetMatch || piece == 'P' && m.getCapture() != 'x') {
+         if (fileMatch && rankMatch) {
+            code += toSquare(m.getStart());
+         } else if (fileMatch) {
+            code += toSquare(m.getStart()).charAt(1);
+         } else {
+            code += toSquare(m.getStart()).charAt(0);
+         }
+      }
+      
+      if (m.getCapture() != 'x') {
+         code += 'x';
+      }
+      
+      code += toSquare(m.getTarget());
+      
+      if (m.getPromote() != 'x') {
+         code += "=" + Character.toUpperCase(m.getPromote());
+      }
+      
+      Chess c = copy();
+      c.move(m);
+      
+      if (c.inCheckmate()) {
+         code += "#";
+      } else if (c.inCheck()) {
+         code += "+";
+      }
+      
+      return code;
+   }
+   
+   // return pgn
+   public String toPGN() {
+      String code = "";
+      
+      for (int i = 0; i < pgn.size(); i ++) {
+         if (i % 2 == 0) {
+            code += (i / 2 + 1) + ". ";
+         }
+         
+         code += pgn.get(i) + " ";
+      }
+      
+      if (inCheckmate()) {
+         if (turn) {
+            code += "0-1";
+         } else {
+            code += "1-0";
+         }
+      } else if (inDraw()) {
+         code += "1/2-1/2"; 
+      }
+      
+      return code;
    }
    
    // set board with FEN

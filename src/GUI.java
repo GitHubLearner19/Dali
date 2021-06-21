@@ -13,19 +13,27 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
 import javafx.geometry.Pos;
+import javafx.geometry.Insets;
 import javafx.stage.StageStyle;
 
 public class GUI extends Application {
    @Override
    public void start(Stage primaryStage) {
-      Board board = new Board();
-      
       GridPane rootPane = new GridPane();
+      
+      rootPane.setPadding(new Insets(50, 50, 50, 50));
+      rootPane.setHgap(50);
+      
+      Board board = new Board(rootPane);
+      SideBar sidebar = new SideBar(board);
+      board.setSideBar(sidebar);
       
       rootPane.setAlignment(Pos.CENTER);
       
       board.update();
-      board.display(rootPane);
+      board.display();
+      
+      sidebar.display(rootPane);
       
       Scene scene = new Scene(rootPane, 800, 550);
       primaryStage.setTitle("Dali Chess");
