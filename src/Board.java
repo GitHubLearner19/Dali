@@ -540,6 +540,7 @@ public class Board {
       if (m.getCapture() != 'x') {
          Piece captured = new Piece(m.getCapture(), m.getTarget() % 8, 7 - m.getTarget() / 8);
          pieces.add(captured);
+         captured.fadeIn(e -> {});
          stack.getChildren().add(captured.get());
          if (pane.getRotate() % 360 == 180) {
             captured.flip();

@@ -75,6 +75,15 @@ public class Piece {
       ft.setOnFinished(handler);
    }
    
+   public void fadeIn(EventHandler<ActionEvent> handler) {
+      FadeTransition ft = new FadeTransition(Duration.millis(200), img);
+      ft.setFromValue(0);
+      ft.setToValue(1.0);
+      ft.setCycleCount(1);
+      ft.play();
+      ft.setOnFinished(handler);
+   }
+   
    public int getColumn() {
       return column;
    }
