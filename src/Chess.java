@@ -707,7 +707,8 @@ public class Chess {
       }
    }
    
-   public char[] targetsWhite() {
+   // get pieces white can attack
+   private char[] targetsWhite() {
       char[] targets = new char[64];
       Arrays.fill(targets, 'x');
       
@@ -744,7 +745,8 @@ public class Chess {
       return targets;
    }
    
-   public char[] targetsBlack() {
+   // get pieces black can attack
+   private char[] targetsBlack() {
       char[] targets = new char[64];
       Arrays.fill(targets, 'x');
       
@@ -781,7 +783,6 @@ public class Chess {
       return targets;
    }
 
-   
    // get moves from start square
    public Move[] moves(String square) {
       ArrayList<Move> m = new ArrayList<Move>();
@@ -1367,22 +1368,12 @@ public class Chess {
       turn = !turn;
    }
    
-   // index of last capture
-   private int lastCapture() {
-      for (int i = history.size() - 1; i >= 0; i ++) {
-         if (history.get(i).getCapture() != 'x') {
-            return i;
-         }
+   // undo and return last half move
+   public Move undo() {
+      if (history.size() == 0) {
+         return null;
       }
       
-      return 0;
-   }
-   
-   // undo last half move
-   public void undo() {
-      if (history.size() == 0) {
-         return;
-      }
       Move m = history.remove(history.size() - 1);
       char piece = pieceAt(m.getTarget());
       
@@ -1445,6 +1436,8 @@ public class Chess {
          epsquare = -1;
          totalCastles.remove(0);
       }
+      
+      return m;
    }
    
    private boolean inCheckWhite(int k, long b) {

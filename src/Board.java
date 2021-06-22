@@ -116,13 +116,6 @@ public class Board {
       state = chess;
       moves = chess.moves();
       
-      if (sidebar != null) {
-         sidebar.update();
-      }
-      
-      stack.getChildren().clear();
-      pieces.clear();
-      
       for (int i = 0; i < 8; i ++) {
          for (int j = 0; j < 8; j ++) {
             char piece = state.toString().charAt(i * 9 + j);
@@ -242,10 +235,6 @@ public class Board {
    
    public boolean isMoving() {
       return moving;
-   }
-   
-   public void setMoving(boolean moving) {
-      this.moving = moving;
    }
    
    private Move[] getMoves() {
@@ -493,18 +482,6 @@ public class Board {
       pane.setBottom(p4);
    }
    
-   private void displayStack() {
-      stack.getChildren().add(grid);
-      
-      for (Piece piece : pieces) {
-         stack.getChildren().add(piece.get());
-         
-         if (pane.getRotate() % 360 == 180) {
-            piece.flip();
-         }
-      }
-   }
-   
    public void display() {
       outline();
       
@@ -512,22 +489,74 @@ public class Board {
          SQUARES[i].display();
       }
       
-      displayStack();
+      stack.getChildren().add(grid);
+      
+      for (Piece piece : pieces) {
+         stack.getChildren().add(piece.get());
+      }
       
       pane.setCenter(stack);
       
       root.add(pane, 0, 0);
    }
    
-   public void undo() {
-      state.undo();
-      
-      if (players.get(state.getTurn()) != "user") {
-         state.undo();
+   private void reverse(Move m) {
+      if (m == null) {
+         return;
       }
       
-      set(state);
-      displayStack();
+      Piece piece = getPiece(SQUARES[m.getTarget()]);
+      
+      // promotion
+      
+      if (m.getPromote() != 'x') {
+         if (Character.isUpperCase(m.getPromote())) {
+            piece.set('P');
+         } else {
+            piece.set('p');
+         }
+      }
+      
+      // castle
+      
+      switch (m.getCastle()) {
+         case 'K':
+            getPiece(SQUARES[5]).move(7, 7, e -> {});
+            break;
+         case 'Q':
+            getPiece(SQUARES[3]).move(0, 7, e -> {});
+            break;
+         case 'k':
+            getPiece(SQUARES[61]).move(7, 0, e -> {});
+            break;
+         case 'q':
+            getPiece(SQUARES[59]).move(0, 0, e -> {});
+      }
+      
+      piece.move(m.getStart() % 8, 7 - m.getStart() / 8, e -> {});
+      
+      // capture
+      
+      if (m.getCapture() != 'x') {
+         Piece captured = new Piece(m.getCapture(), m.getTarget() % 8, 7 - m.getTarget() / 8);
+         pieces.add(captured);
+         stack.getChildren().add(captured.get());
+         if (pane.getRotate() % 360 == 180) {
+            captured.flip();
+         }
+      }
+   }
+   
+   public void undo() {
+      moving = true;
+      reverse(state.undo());
+      
+      if (players.get(state.getTurn()) != "user") {
+         reverse(state.undo());
+      }
+      
+      moves = state.moves();
+      moving = false;
    }
    
    public void flip() {

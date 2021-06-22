@@ -88,10 +88,8 @@ public class SideBar {
       
       undobtn.setOnAction(e -> {
          if (!board.isMoving()) {
-            board.setMoving(true);
             board.undo();
             update();
-            board.setMoving(false);
          }
       });
       
