@@ -143,7 +143,7 @@ public class Dali {
    
    public static int negamax(Chess node, int depth, int alpha, int beta, int color) {
       if (node.inCheckmate()) {
-         return Integer.MAX_VALUE * color;
+         return -Integer.MAX_VALUE;
       } else if (node.inDraw()) {
          return 0;
       } else if (depth == 0) {
