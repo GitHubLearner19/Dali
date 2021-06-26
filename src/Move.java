@@ -62,6 +62,10 @@ public class Move {
       this.data = data;
    }
    
+   public boolean equals(Move m) {
+      return data == m.get();
+   }
+   
    // extract k bits starting at position s
    private int extract(int s, int k) {
       return ((1 << k) - 1) & (data >>> s);

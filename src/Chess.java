@@ -286,7 +286,25 @@ public class Chess {
       bKing = 0;
    }
    
-   private static class MovePair {
+   public class PieceSquare {
+      private char piece;
+      private int square;
+      
+      public PieceSquare(char piece, int square) {
+         this.piece = piece;
+         this.square = square;
+      }
+      
+      public char getPiece() {
+         return piece;
+      }
+      
+      public int getSquare() {
+         return square;
+      }
+   }
+   
+   private class MovePair {
       private char piece;
       private long moves;
       
@@ -877,13 +895,17 @@ public class Chess {
       
       /* king moves */
       
+      char[] targets = targetsWhite();
+      
       moves.put(kingSquare, new MovePair('K', getKingMoves(kingSquare, attacked) & ~wPieces));
       
       /* double check */
       
       if (attackersCount > 1) {
          createMoves(m, moves);
-         
+         for (Move move : m) {
+            move.setCapture(targets[move.getTarget()]);
+         }
          return m.toArray(new Move[0]);
       } else if (attackersCount == 1) {
          captureMask = attackers;
@@ -955,8 +977,6 @@ public class Chess {
       createMoves(m, moves);
       
       // set capture squares
-      
-      char[] targets = targetsWhite();
       
       for (Move move : m) {
          move.setCapture(targets[move.getTarget()]);
@@ -1056,13 +1076,17 @@ public class Chess {
       
       /* king moves */
       
+      char[] targets = targetsBlack();
+      
       moves.put(kingSquare, new MovePair('k', getKingMoves(kingSquare, attacked) & ~bPieces));
       
       /* double check */
       
       if (attackersCount > 1) {
          createMoves(m, moves);
-         
+         for (Move move : m) {
+            move.setCapture(targets[move.getTarget()]);
+         }
          return m.toArray(new Move[0]);
       } else if (attackersCount == 1) {
          captureMask = attackers;
@@ -1134,8 +1158,6 @@ public class Chess {
       createMoves(m, moves);
       
       // set capture squares
-      
-      char[] targets = targetsBlack();
       
       for (Move move : m) {
          move.setCapture(targets[move.getTarget()]);
@@ -1280,7 +1302,7 @@ public class Chess {
       
       if (historyOn) {
          history.add(m);
-         pgn.add(toPGN(m));
+         pgn.add(SAN(m));
       }
       
       removePiece(startSquare, piece);
@@ -1375,12 +1397,13 @@ public class Chess {
       }
       
       Move m = history.remove(history.size() - 1);
-      char piece = pieceAt(m.getTarget());
+      int target = m.getTarget();
+      char piece = pieceAt(target);
       
       turn = !turn;
       pgn.remove(history.size());
       
-      removePiece(m.getTarget(), piece);
+      removePiece(target, piece);
       
       if (m.getPromote() == 'x') {
          addPiece(m.getStart(), piece);
@@ -1408,12 +1431,12 @@ public class Chess {
       
       if (m.getEnPassant()) {
          if (turn) {
-            addPiece(m.getTarget() - 8, m.getCapture());
+            addPiece(target - 8, m.getCapture());
          } else {
-            addPiece(m.getTarget() + 8, m.getCapture());
+            addPiece(target + 8, m.getCapture());
          }
       } else {
-         addPiece(m.getTarget(), m.getCapture());
+         addPiece(target, m.getCapture());
       }
       
       fullMoves -= turn ? 0 : 1;
@@ -1544,7 +1567,7 @@ public class Chess {
    }
    
    // move to pgn
-   private String toPGN(Move m) {
+   public String SAN(Move m) {
       String code = "";
       char piece = Character.toUpperCase(pieceAt(m.getStart()));
       
@@ -1829,6 +1852,68 @@ public class Chess {
       fen += " " + movesSinceCapture + " " + fullMoves;
       
       return fen;
+   }
+   
+   // get map of pieces to squares
+   public ArrayList<PieceSquare> board() {
+      ArrayList<PieceSquare> b = new ArrayList<>();
+      
+      ArrayList<Integer> s;
+      
+      s = occupiedSquares(bPawns);
+      for (int i : s) {
+         b.add(new PieceSquare('p', i));
+      }
+      
+      s = occupiedSquares(wPawns);
+      for (int i : s) {
+         b.add(new PieceSquare('P', i));
+      }
+      
+      s = occupiedSquares(bKnights);
+      for (int i : s) {
+         b.add(new PieceSquare('n', i));
+      }
+      
+      s = occupiedSquares(wKnights);
+      for (int i : s) {
+         b.add(new PieceSquare('N', i));
+      }
+      
+      s = occupiedSquares(bBishops);
+      for (int i : s) {
+         b.add(new PieceSquare('b', i));
+      }
+      
+      s = occupiedSquares(wBishops);
+      for (int i : s) {
+         b.add(new PieceSquare('B', i));
+      }
+      
+      s = occupiedSquares(bRooks);
+      for (int i : s) {
+         b.add(new PieceSquare('r', i));
+      }
+      
+      s = occupiedSquares(wRooks);
+      for (int i : s) {
+         b.add(new PieceSquare('R', i));
+      }
+      
+      s = occupiedSquares(bQueens);
+      for (int i : s) {
+         b.add(new PieceSquare('q', i));
+      }
+      
+      s = occupiedSquares(wQueens);
+      for (int i : s) {
+         b.add(new PieceSquare('Q', i));
+      }
+      
+      b.add(new PieceSquare('k', BS.LSB(bKing)));
+      b.add(new PieceSquare('K', BS.LSB(wKing)));
+      
+      return b;
    }
    
    // perft debugging

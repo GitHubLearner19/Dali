@@ -22,7 +22,8 @@ public class SideBar {
    private TextArea notation = new TextArea();
    private RadioButton pgn = new RadioButton("PGN");
    private RadioButton fen = new RadioButton("FEN");
-   private boolean undoLock = true;
+   private boolean undoLock = false;
+   private int undos = 0;
    
    public SideBar(Board board) {
       this.board = board;
@@ -33,6 +34,10 @@ public class SideBar {
          notation.setText(board.getState().toPGN());
       } else {
          notation.setText(board.getState().toFEN());
+      }
+      
+      if (board.getTurn() == "user") {
+         undos = 1;
       }
    }
    
@@ -45,9 +50,6 @@ public class SideBar {
       notation.setPrefColumnCount(15);
       notation.setFont(Font.font("Times New Roman", 20));
       stack.getChildren().add(notation);
-      
-      ScrollPane scrollPane = new ScrollPane(notation);
-      stack.getChildren().add(scrollPane);
       
       ToggleGroup group = new ToggleGroup();
       pgn.setFont(Font.font("Times New Roman", 20));
@@ -87,9 +89,10 @@ public class SideBar {
       });
       
       undobtn.setOnAction(e -> {
-         if (!board.isMoving()) {
+         if (board.getTurn() == "user" && !undoLock && !board.isMoving() && undos > 0) {
             board.undo();
             update();
+            undos = 0;
          }
       });
       

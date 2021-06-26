@@ -23,11 +23,14 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.beans.property.SimpleBooleanProperty;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.Map;
 import java.util.Arrays;
 import java.util.HashMap;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 
 public class Board {
    private GridPane root;
@@ -53,7 +56,7 @@ public class Board {
    private Square startSquare;
    private Square targetSquare;
    
-   private boolean moving = false;
+   private SimpleBooleanProperty moving = new SimpleBooleanProperty(true);
    
    // pieces
    private ArrayList<Piece> pieces = new ArrayList<>();
@@ -62,6 +65,7 @@ public class Board {
    
    // dialog box
    private Dialog<String> dialog = new Dialog<>();
+   private Alert alert = new Alert(AlertType.INFORMATION, "");
    
    // outside rectangles
    private Rectangle r1 = new Rectangle(25, 400);
@@ -89,7 +93,9 @@ public class Board {
       grid.setVgap(0);
       
       players.put('w', "user");
-      players.put('b', "user");
+      players.put('b', "computer");
+      
+      alert.getDialogPane().setStyle("-fx-font-family: Times New Roman");
       
       ButtonType queen = new ButtonType("Queen", ButtonData.OK_DONE);
       ButtonType rook = new ButtonType("Rook", ButtonData.OK_DONE);
@@ -219,6 +225,20 @@ public class Board {
       }
    }
    
+   class Search implements Runnable {
+      public void run() {
+         Move[] m = Dali.search(state);
+         startSquare = SQUARES[m[0].getStart()];
+         targetSquare = SQUARES[m[0].getTarget()];
+         selected = getPiece(startSquare);
+         move(m);
+      }
+   }
+   
+   public String getTurn() {
+      return players.get(state.getTurn());
+   }
+   
    public Chess getState() {
       return state;
    }
@@ -233,8 +253,32 @@ public class Board {
       return null;
    }
    
+   private void popup() {
+      if (state.inCheckmate()) {
+         if (state.getTurn() == 'w') {
+            alert.setHeaderText("Black wins!");
+         } else {
+            alert.setHeaderText("White wins!");
+         }
+         
+         alert.show();
+      } else if (state.inStalemate()) {
+         alert.setHeaderText("Draw by stalemate");
+         alert.show();
+         moves = new Move[0];
+      } else if (state.insufficientMaterial()) {
+         alert.setHeaderText("Draw by insufficient material");
+         alert.show();
+         moves = new Move[0];
+      } else if (state.fiftyMoves()) {
+         alert.setHeaderText("Draw by fifty-move rule");
+         alert.show();
+         moves = new Move[0];
+      }
+   }
+   
    public boolean isMoving() {
-      return moving;
+      return moving.get();
    }
    
    private Move[] getMoves() {
@@ -249,9 +293,19 @@ public class Board {
       return list.toArray(new Move[0]);
    }
    
+   private void reset() {
+      moves = state.moves();
+      sidebar.update();
+      startSquare = null;
+      targetSquare = null;
+      selected = null;
+      popup();
+      moving.set(false);
+   }
+   
    public void move(Move[] m) {
       
-      moving = true;
+      moving.set(true);
    
       // handle capture
       
@@ -282,31 +336,18 @@ public class Board {
                      for (int i = 0; i < 4; i ++) {
                         if (Character.toUpperCase(m[i].getPromote()) == dialog.getResult().charAt(0)) {
                            state.move(m[i]);
-                           moves = state.moves();
-                           if (state.inDraw()) {
-                              moves = new Move[0];
-                           }
-                           sidebar.update();
                            selected.set(m[i].getPromote());
-                           startSquare = null;
-                           targetSquare = null;
-                           moving = false;
-                           selected = null;
+                           reset();
                            break;
                         }
                      }
                   });
             } else {
                state.move(m[0]);
-               moves = state.moves();
-               if (state.inDraw()) {
-                  moves = new Move[0];
+               if (m[0].getPromote() != 'x') {
+                  selected.set(m[0].getPromote());
                }
-               sidebar.update();
-               startSquare = null;
-               targetSquare = null;
-               moving = false;
-               selected = null;
+               reset();
             }
          });
          
@@ -330,14 +371,14 @@ public class Board {
    public void update() {
       grid.addEventFilter(MouseEvent.MOUSE_CLICKED, 
          e -> {
-            if (moving || players.get(state.getTurn()) != "user") {
+            if (moving.get() || players.get(state.getTurn()) != "user") {
                e.consume();
             }
          });
       
       grid.addEventFilter(MouseEvent.MOUSE_DRAGGED, 
          e -> {
-            if (moving || players.get(state.getTurn()) != "user") {
+            if (moving.get() || players.get(state.getTurn()) != "user") {
                e.consume();
             } else if (startSquare != null) {
                selected.setX(e.getX());
@@ -348,14 +389,14 @@ public class Board {
          
       grid.addEventFilter(MouseEvent.MOUSE_PRESSED, 
          e -> {
-            if (moving || startSquare == null) {
+            if (moving.get() || startSquare == null) {
                e.consume();
             }
          });
       
       grid.setOnMouseReleased(
          e -> {
-            if (!moving && startSquare != null) {
+            if (!moving.get() && startSquare != null) {
                Square square = new Square();
                
                for (Square s : SQUARES) {
@@ -383,6 +424,15 @@ public class Board {
                }
             }
          });
+         
+      moving.addListener(
+         (v, o, n) -> {
+            if (!n.booleanValue() && players.get(state.getTurn()) == "computer" && moves.length > 0) {
+               new Thread(new Search()).start();
+            }
+         });
+         
+      moving.set(false);
       
       for (int i = 0; i < 64; i ++) {
          SQUARES[i].click();
@@ -549,7 +599,7 @@ public class Board {
    }
    
    public void undo() {
-      moving = true;
+      moving.set(true);
       reverse(state.undo());
       
       if (players.get(state.getTurn()) != "user") {
@@ -557,7 +607,7 @@ public class Board {
       }
       
       moves = state.moves();
-      moving = false;
+      moving.set(false);
    }
    
    public void flip() {
