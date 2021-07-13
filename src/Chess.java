@@ -5,6 +5,7 @@
  */
 
 import java.util.*;
+import java.security.SecureRandom;
 
 /* Chess Board */
 
@@ -53,6 +54,17 @@ public class Chess {
    
    // pgn
    private ArrayList<String> pgn = new ArrayList<>();
+   
+   // random numbers
+   private static long[] RANDOMS = new long[781];
+   
+   static {
+      SecureRandom r = new SecureRandom();
+      
+      for (int i = 0; i < RANDOMS.length; i ++) {
+         RANDOMS[i] = r.nextLong();
+      }
+   }
    
    // compass directions
    
@@ -1945,6 +1957,54 @@ public class Chess {
       }
       
       return divide;
+   }
+   
+   /* Zobrist Hashing */
+   
+   public long hash() {
+      ArrayList<Integer> indices = new ArrayList<>();
+      
+      List<ArrayList<Integer>> squares = new ArrayList<>();
+      squares.add(occupiedSquares(wPawns));
+      squares.add(occupiedSquares(bPawns));
+      squares.add(occupiedSquares(wKnights));
+      squares.add(occupiedSquares(bKnights));
+      squares.add(occupiedSquares(wBishops));
+      squares.add(occupiedSquares(bBishops));
+      squares.add(occupiedSquares(wRooks));
+      squares.add(occupiedSquares(bRooks));
+      squares.add(occupiedSquares(wQueens));
+      squares.add(occupiedSquares(bQueens));
+      squares.add(occupiedSquares(wKing));
+      squares.add(occupiedSquares(bKing));
+      
+      for (int i = 0; i < squares.size(); i ++) {
+         for (Integer j : squares.get(i)) {
+            indices.add(64 * i + j);
+         }
+      }
+      
+      if (turn) {
+         indices.add(768);
+      }
+      
+      for (int i = 0; i < 4; i ++) {
+         if (castle[i]) {
+            indices.add(769 + i);
+         }
+      }
+      
+      if (epsquare > -1) {
+         indices.add(773 + epsquare % 8);
+      }
+      
+      long code = indices.get(0);
+      
+      for (int i = 1; i < indices.size(); i ++) {
+         code ^= indices.get(i);
+      }
+      
+      return code;
    }
    
    @Override
