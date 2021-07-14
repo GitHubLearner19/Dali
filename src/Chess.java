@@ -1998,10 +1998,10 @@ public class Chess {
          indices.add(773 + epsquare % 8);
       }
       
-      long code = indices.get(0);
+      long code = RANDOMS[indices.get(0)];
       
       for (int i = 1; i < indices.size(); i ++) {
-         code ^= indices.get(i);
+         code ^= RANDOMS[indices.get(i)];
       }
       
       return code;

@@ -9,6 +9,10 @@ import java.util.*;
 public class Dali {
    private static Map<Character, Integer> scores = new HashMap<>();
    private static Map<Character, int[]> pst = new HashMap<>();
+   private static Table transpositions = new Table(25);
+   private final static byte EXACT = 0;
+   private final static byte LOWERBOUND = 1;
+   private final static byte UPPERBOUND = 2;
    
    static {
       scores.put('P', 100);
@@ -142,8 +146,26 @@ public class Dali {
    }
    
    public static int negamax(Chess node, int depth, int alpha, int beta, int color) {
+      int alphaStart = alpha;
+      
+      long hash = node.hash();
+      Table.Entry entry = transpositions.get(hash);
+      if (entry != null && entry.key() == hash && entry.depth() >= depth) {
+         if (entry.flag() == EXACT) {
+            return entry.score();
+         } else if (entry.flag() == LOWERBOUND) {
+            alpha = Math.max(alpha, entry.score());
+         } else if (entry.flag() == UPPERBOUND) {
+            beta = Math.min(beta, entry.score());
+         }
+      }
+      
+      if (alpha >= beta) {
+         return entry.score();
+      }
+      
       if (node.inCheckmate()) {
-         return -Integer.MAX_VALUE;
+         return -20000;
       } else if (node.inDraw()) {
          return 0;
       } else if (depth == 0) {
@@ -151,52 +173,47 @@ public class Dali {
       }
       
       Move[] moves = node.moves();
-      int value = -Integer.MAX_VALUE;
+      Move m = moves[0];
+      int value = -20000;
       
       for (Move move : moves) {
          Chess chess = node.copy();
          chess.move(move);
-         value = Math.max(value, -negamax(chess, depth - 1, -beta, -alpha, -color));
-         alpha = Math.max(alpha, value);
+         
+         int score = -negamax(chess, depth - 1, -beta, -alpha, -color);
+         
+         if (score > value) {
+            value = score;
+            m = move;
+            alpha = Math.max(alpha, value);         
+         }
          
          if (alpha >= beta) {
             break;
          }
       }
       
+      byte flag;
+      
+      if (value <= alphaStart) {
+         flag = UPPERBOUND;
+      } else if (value >= beta) {
+         flag = LOWERBOUND;
+      } else {
+         flag = EXACT;
+      }
+      
+      transpositions.put(node, m, depth, value, flag);
+      
       return value;
    }
    
-   public static Move[] negamaxRoot(Chess node, int depth) {
-      Move[] moves = node.moves();
-      int color = node.getTurn() == 'w' ? 1 : -1;
-      ArrayList<Move> top = new ArrayList<>();
-      int score = -Integer.MAX_VALUE;
-      
-      for (Move move : moves) {
-         Chess chess = node.copy();
-         chess.move(move);
-      
-         int temp = -negamax(chess, depth - 1, -Integer.MAX_VALUE, Integer.MAX_VALUE, -color);
-         if (temp >= score) {
-            if (temp > score) {
-               top.clear();
-            }
-            score = temp;
-            top.add(move);
-         }
-      }
-      
-      return top.toArray(new Move[0]);
-   }
-   
    public static Move[] search(Chess state) {
-      Move[] result = new Move[1];
-      Move[] options = negamaxRoot(state, 4);
-      
-      result[0] = options[(int) (Math.random() * options.length)];
-      
-      return result;
+      Move[] moves = new Move[1];
+      negamax(state, 4, -20000, 20000, state.getTurn() == 'w' ? 1 : -1);
+      moves[0] = transpositions.get(state).move();
+      transpositions.clear();
+      return moves;
    }
 }
 
