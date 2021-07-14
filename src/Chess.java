@@ -58,6 +58,9 @@ public class Chess {
    // random numbers
    private static long[] RANDOMS = new long[781];
    
+   // hash code
+   private long hash;
+   
    static {
       SecureRandom r = new SecureRandom();
       
@@ -249,8 +252,10 @@ public class Chess {
          epsquare = 0;
          movesSinceCapture = 0;
          fullMoves = 1;
+         hashSetup();
       } else {
          set(fen);
+         hashSetup();
       }
    }
    
@@ -259,7 +264,7 @@ public class Chess {
       historyOn = hOn;
    }
    
-   private Chess(long wP, long bP, long wN, long bN, long wB, long bB, long wR, long bR, long wQ, long bQ, long wK, long bK, boolean turn, boolean[] castle, int ep, int m1, int m2) {
+   private Chess(long wP, long bP, long wN, long bN, long wB, long bB, long wR, long bR, long wQ, long bQ, long wK, long bK, boolean turn, boolean[] castle, int ep, long hash, int m1, int m2) {
       wPawns = wP;
       bPawns = bP;
       wKnights = wN;
@@ -275,6 +280,7 @@ public class Chess {
       this.turn = turn;
       this.castle = castle;
       epsquare = ep;
+      this.hash = hash;
       movesSinceCapture = m1;
       fullMoves = m2;
    }
@@ -296,6 +302,50 @@ public class Chess {
       bQueens = 0;
       wKing = 0;
       bKing = 0;
+   }
+   
+   private void hashSetup() {
+      ArrayList<Integer> indices = new ArrayList<>();
+      
+      List<ArrayList<Integer>> squares = new ArrayList<>();
+      squares.add(occupiedSquares(wPawns));
+      squares.add(occupiedSquares(bPawns));
+      squares.add(occupiedSquares(wKnights));
+      squares.add(occupiedSquares(bKnights));
+      squares.add(occupiedSquares(wBishops));
+      squares.add(occupiedSquares(bBishops));
+      squares.add(occupiedSquares(wRooks));
+      squares.add(occupiedSquares(bRooks));
+      squares.add(occupiedSquares(wQueens));
+      squares.add(occupiedSquares(bQueens));
+      squares.add(occupiedSquares(wKing));
+      squares.add(occupiedSquares(bKing));
+      
+      for (int i = 0; i < squares.size(); i ++) {
+         for (Integer j : squares.get(i)) {
+            indices.add(64 * i + j);
+         }
+      }
+      
+      if (turn) {
+         indices.add(768);
+      }
+      
+      for (int i = 0; i < 4; i ++) {
+         if (castle[i]) {
+            indices.add(769 + i);
+         }
+      }
+      
+      if (epsquare > -1) {
+         indices.add(773 + epsquare % 8);
+      }
+      
+      hash = RANDOMS[indices.get(0)];
+      
+      for (int i = 1; i < indices.size(); i ++) {
+         hash ^= RANDOMS[indices.get(i)];
+      }
    }
    
    public class PieceSquare {
@@ -1215,6 +1265,7 @@ public class Chess {
          turn, 
          castle.clone(), 
          epsquare,
+         hash, 
          movesSinceCapture,
          fullMoves
          );
@@ -1226,39 +1277,51 @@ public class Chess {
       switch (piece) {
          case 'p':
             bPawns &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 + startSquare];
             break;
          case 'n':
             bKnights &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 3 + startSquare];
             break;
          case 'b':
             bBishops &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 5 + startSquare];
             break;
          case 'r':
             bRooks &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 7 + startSquare];
             break;
          case 'q':
             bQueens &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 9 + startSquare];
             break;
          case 'k':
             bKing &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 11 + startSquare];
             break;
          case 'P':
             wPawns &= ~(1L << startSquare);
+            hash ^= RANDOMS[startSquare];
             break;
          case 'N':
             wKnights &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 2 + startSquare];
             break;
          case 'B':
             wBishops &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 4 + startSquare];
             break;
          case 'R':
             wRooks &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 6 + startSquare];
             break;
          case 'Q':
             wQueens &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 8 + startSquare];
             break;
          case 'K':
             wKing &= ~(1L << startSquare);
+            hash ^= RANDOMS[64 * 10 + startSquare];
       }
    }
    
@@ -1268,42 +1331,75 @@ public class Chess {
       switch (piece) {
          case 'p':
             bPawns |= (1L << startSquare);
+            hash ^= RANDOMS[64 + startSquare];
             break;
          case 'n':
             bKnights |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 3 + startSquare];
             break;
          case 'b':
             bBishops |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 5 + startSquare];
             break;
          case 'r':
             bRooks |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 7 + startSquare];
             break;
          case 'q':
             bQueens |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 9 + startSquare];
             break;
          case 'k':
             bKing |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 11 + startSquare];
             break;
          case 'P':
             wPawns |= (1L << startSquare);
+            hash ^= RANDOMS[startSquare];
             break;
          case 'N':
             wKnights |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 2 + startSquare];
             break;
          case 'B':
             wBishops |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 4 + startSquare];
             break;
          case 'R':
             wRooks |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 6 + startSquare];
             break;
          case 'Q':
             wQueens |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 8 + startSquare];
             break;
          case 'K':
             wKing |= (1L << startSquare);
+            hash ^= RANDOMS[64 * 10 + startSquare];
       }
    }
-      
+   
+   private void hashCastle(boolean[] old) {
+      for (int i = 0; i < old.length; i ++) {
+         if (castle[i] != old[i]) {
+            hash ^= RANDOMS[769 + i];
+         }
+      }
+   }
+   
+   private void hashEnPassant(int old) {
+      if (epsquare % 8 != old % 8) {
+         if (old > -1) {
+            hash ^= RANDOMS[773 + old % 8];
+         } 
+            
+         if (epsquare > -1) {
+            hash ^= RANDOMS[773 + epsquare % 8];
+         }
+      }
+         
+   }
+   
    // apply move to chess board
    public void move(Move m) {
       int startSquare = m.getStart();
@@ -1329,6 +1425,8 @@ public class Chess {
       movesSinceCapture = capture == 'x' ? movesSinceCapture + 1 : 1;
       totalHalfMoves.add(movesSinceCapture);
       fullMoves = turn ? fullMoves : fullMoves + 1;
+      
+      boolean[] oldCastle = new boolean[]{castle[0], castle[1], castle[2], castle[3]};
       
       switch (m.getCastle()) {
          case 'K':
@@ -1377,6 +1475,7 @@ public class Chess {
             }
       }
       
+      hashCastle(oldCastle);
       totalCastles.add(new Boolean[]{castle[0], castle[1], castle[2], castle[3]});
       
       if (m.getEnPassant()) {
@@ -1386,6 +1485,8 @@ public class Chess {
             removePiece(targetSquare + 8, 'P');
          }
       }
+      
+      int oldEp = epsquare;
       
       epsquare = -1;
       
@@ -1397,8 +1498,10 @@ public class Chess {
          }
       }
       
+      hashEnPassant(oldEp);
       totalEpSquares.add(epsquare);
       
+      hash ^= RANDOMS[768];
       turn = !turn;
    }
    
@@ -1413,6 +1516,7 @@ public class Chess {
       char piece = pieceAt(target);
       
       turn = !turn;
+      hash ^= RANDOMS[768];
       pgn.remove(history.size());
       
       removePiece(target, piece);
@@ -1455,15 +1559,19 @@ public class Chess {
       
       if (history.size() > 0) {
          totalCastles.remove(history.size());
-         Boolean[] tc = totalCastles.get(history.size() - 1);      
+         Boolean[] tc = totalCastles.get(history.size() - 1); 
+         boolean[] oldCastle = new boolean[]{castle[0], castle[1], castle[2], castle[3]};     
          castle[0] = tc[0];
          castle[1] = tc[1];
          castle[2] = tc[2];
          castle[3] = tc[3];
+         hashCastle(oldCastle);
          totalHalfMoves.remove(history.size());
          movesSinceCapture = totalHalfMoves.get(history.size() - 1);
          totalEpSquares.remove(history.size());
+         int oldEp = epsquare;
          epsquare = totalEpSquares.get(history.size() - 1);
+         hashEnPassant(oldEp);
       } else {
          totalHalfMoves.remove(0);
          movesSinceCapture = 0;
@@ -1962,51 +2070,9 @@ public class Chess {
    /* Zobrist Hashing */
    
    public long hash() {
-      ArrayList<Integer> indices = new ArrayList<>();
-      
-      List<ArrayList<Integer>> squares = new ArrayList<>();
-      squares.add(occupiedSquares(wPawns));
-      squares.add(occupiedSquares(bPawns));
-      squares.add(occupiedSquares(wKnights));
-      squares.add(occupiedSquares(bKnights));
-      squares.add(occupiedSquares(wBishops));
-      squares.add(occupiedSquares(bBishops));
-      squares.add(occupiedSquares(wRooks));
-      squares.add(occupiedSquares(bRooks));
-      squares.add(occupiedSquares(wQueens));
-      squares.add(occupiedSquares(bQueens));
-      squares.add(occupiedSquares(wKing));
-      squares.add(occupiedSquares(bKing));
-      
-      for (int i = 0; i < squares.size(); i ++) {
-         for (Integer j : squares.get(i)) {
-            indices.add(64 * i + j);
-         }
-      }
-      
-      if (turn) {
-         indices.add(768);
-      }
-      
-      for (int i = 0; i < 4; i ++) {
-         if (castle[i]) {
-            indices.add(769 + i);
-         }
-      }
-      
-      if (epsquare > -1) {
-         indices.add(773 + epsquare % 8);
-      }
-      
-      long code = RANDOMS[indices.get(0)];
-      
-      for (int i = 1; i < indices.size(); i ++) {
-         code ^= RANDOMS[indices.get(i)];
-      }
-      
-      return code;
+      return hash;
    }
-   
+     
    @Override
    public String toString() {
       String board = "";
