@@ -14,6 +14,8 @@ public class Dali {
    private final static byte LOWERBOUND = 1;
    private final static byte UPPERBOUND = 2;
    
+   // initialize piece square tables
+   
    static {
       scores.put('P', 100);
       scores.put('p', -100);
@@ -88,7 +90,7 @@ public class Dali {
          };
       queens = arrange(queens);
       
-      int[] kings = {
+      int[] kings1 = {
          -30,-40,-40,-50,-50,-40,-40,-30,
          -30,-40,-40,-50,-50,-40,-40,-30,
          -30,-40,-40,-50,-50,-40,-40,-30,
@@ -98,7 +100,19 @@ public class Dali {
           20, 20,  0,  0,  0,  0, 20, 20,
           20, 30, 10,  0,  0, 10, 30, 20
          };
-      kings = arrange(kings);
+      kings1 = arrange(kings1);
+      
+      int[] kings2 = {
+         -50,-40,-30,-20,-20,-30,-40,-50,
+         -30,-20,-10,  0,  0,-10,-20,-30,
+         -30,-10, 20, 30, 30, 20,-10,-30,
+         -30,-10, 30, 40, 40, 30,-10,-30,
+         -30,-10, 30, 40, 40, 30,-10,-30,
+         -30,-10, 20, 30, 30, 20,-10,-30,
+         -30,-30,  0,  0,  0,  0,-30,-30,
+         -50,-30,-30,-30,-30,-30,-30,-50
+         };
+      kings2 = arrange(kings2);
       
       pst.put('P', pawns);
       pst.put('p', flip(pawns));
@@ -110,8 +124,10 @@ public class Dali {
       pst.put('r', flip(rooks));
       pst.put('Q', queens);
       pst.put('q', flip(queens));
-      pst.put('K', kings);
-      pst.put('k', flip(kings));
+      pst.put('K', kings1);
+      pst.put('k', flip(kings1));
+      pst.put('C', kings2);
+      pst.put('c', flip(kings2));
    }
    
    private static int[] arrange(int[] table) {
@@ -134,18 +150,28 @@ public class Dali {
       return t;
    }
    
+   // static evaluation
    public static int evaluate(Chess state) {
       ArrayList<Chess.PieceSquare> board = state.board();
+      boolean endgame = state.isEndgame();
       int score = 0;
       
       for (Chess.PieceSquare entry : board) {
-         score += scores.get(entry.getPiece()) + pst.get(entry.getPiece())[entry.getSquare()];
+         if (!endgame) {
+            score += scores.get(entry.getPiece()) + pst.get(entry.getPiece())[entry.getSquare()];
+         } else if (entry.getPiece() == 'K') {
+            score += scores.get('K') + pst.get('C')[entry.getSquare()];
+         } else if (entry.getPiece() == 'k') {
+            score += scores.get('k') + pst.get('c')[entry.getSquare()];
+         }
       }
       
       return score;
    }
    
-   public static int negamax(Chess node, int depth, int alpha, int beta, int color) {
+   // principal variation search
+   
+   public static int pvs(Chess node, int depth, int alpha, int beta, int color) {
       int alphaStart = alpha;
       
       // check transposition table for matches
@@ -180,18 +206,25 @@ public class Dali {
       
       Move[] moves = node.moves();
       Move m = moves[0];
-      int value = -20000;
       
       for (Move move : moves) {
          Chess chess = node.copy();
          chess.move(move);
          
-         int score = -negamax(chess, depth - 1, -beta, -alpha, -color);
+         int score;
          
-         if (score > value) {
-            value = score;
-            m = move;
-            alpha = Math.max(alpha, value);         
+         if (entry != null && move.equals(entry.move())) {
+            score = -pvs(chess, depth - 1, -beta, -alpha, -color);
+         } else {
+            score = -zws(chess, depth - 1, -alpha, -color);
+            if (score > alpha && score < beta) {
+               score = -pvs(chess, depth - 1, -beta, -score, -color);
+            }
+         }
+         
+         if (score > alpha) {
+            alpha = score;
+            m = move;         
          }
          
          if (alpha >= beta) {
@@ -203,22 +236,95 @@ public class Dali {
       
       byte flag;
       
-      if (value <= alphaStart) {
+      if (alpha <= alphaStart) {
          flag = UPPERBOUND;
-      } else if (value >= beta) {
+      } else if (alpha >= beta) {
          flag = LOWERBOUND;
       } else {
          flag = EXACT;
       }
       
-      transpositions.put(node, m, depth, value, flag);
+      transpositions.put(node, m, depth, alpha, flag);
       
-      return value;
+      return alpha;
+   }
+   
+   // null window search
+   
+   public static int zws(Chess node, int depth, int beta, int color) {
+      int alpha = beta - 1;
+      
+      // check transposition table for matches
+      
+      long hash = node.hash();
+      Table.Entry entry = transpositions.get(hash);
+      if (entry != null && entry.key() == hash && entry.depth() >= depth) {
+         if (entry.flag() == EXACT) {
+            return entry.score();
+         } else if (entry.flag() == LOWERBOUND) {
+            alpha = Math.max(alpha, entry.score());
+         } else if (entry.flag() == UPPERBOUND) {
+            beta = Math.min(beta, entry.score());
+         }
+      }
+      
+      if (alpha >= beta) {
+         return entry.score();
+      }
+      
+      // terminal node
+      
+      if (node.inCheckmate()) {
+         return -20000;
+      } else if (node.inDraw()) {
+         return 0;
+      } else if (depth == 0) {
+         return evaluate(node) * color;
+      }
+      
+      // search
+      
+      Move[] moves = node.moves();
+      Move m = moves[0];
+      
+      for (Move move : moves) {
+         Chess chess = node.copy();
+         chess.move(move);
+         
+         int score = -zws(chess, depth - 1, -alpha, -color);
+         
+         if (score > alpha) {
+            alpha = score;
+            m = move;         
+         }
+         
+         if (alpha >= beta) {
+            break;
+         }
+      }
+      
+      // add to table
+      
+      byte flag;
+      
+      if (alpha <= beta - 1) {
+         flag = UPPERBOUND;
+      } else {
+         flag = LOWERBOUND;
+      }
+      
+      transpositions.put(node, m, depth, alpha, flag);
+      
+      return alpha;
    }
    
    public static Move[] search(Chess state) {
       Move[] moves = new Move[1];
-      negamax(state, 4, -20000, 20000, state.getTurn() == 'w' ? 1 : -1);
+      
+      for (int i = 1; i <= 5; i ++) {
+         pvs(state, i, -20000, 20000, state.getTurn() == 'w' ? 1 : -1);
+      }
+      
       moves[0] = transpositions.get(state).move();
       transpositions.clear();
       return moves;

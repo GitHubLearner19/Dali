@@ -1623,6 +1623,11 @@ public class Chess {
       return false;
    }
    
+   // returns whether position is endgame 
+   public boolean isEndgame() {
+      return wQueens == 0 && bQueens == 0;
+   }
+   
    // returns turn ('w' or 'b')
    public char getTurn() {
       return turn ? 'w' : 'b';
