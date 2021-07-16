@@ -148,6 +148,8 @@ public class Dali {
    public static int negamax(Chess node, int depth, int alpha, int beta, int color) {
       int alphaStart = alpha;
       
+      // check transposition table for matches
+      
       long hash = node.hash();
       Table.Entry entry = transpositions.get(hash);
       if (entry != null && entry.key() == hash && entry.depth() >= depth) {
@@ -164,6 +166,8 @@ public class Dali {
          return entry.score();
       }
       
+      // terminal node
+      
       if (node.inCheckmate()) {
          return -20000;
       } else if (node.inDraw()) {
@@ -171,6 +175,8 @@ public class Dali {
       } else if (depth == 0) {
          return evaluate(node) * color;
       }
+      
+      // search
       
       Move[] moves = node.moves();
       Move m = moves[0];
@@ -192,6 +198,8 @@ public class Dali {
             break;
          }
       }
+      
+      // add to table
       
       byte flag;
       
