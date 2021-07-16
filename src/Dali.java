@@ -157,12 +157,12 @@ public class Dali {
       int score = 0;
       
       for (Chess.PieceSquare entry : board) {
-         if (!endgame) {
-            score += scores.get(entry.getPiece()) + pst.get(entry.getPiece())[entry.getSquare()];
-         } else if (entry.getPiece() == 'K') {
+         if (endgame && entry.getPiece() == 'K') {
             score += scores.get('K') + pst.get('C')[entry.getSquare()];
-         } else if (entry.getPiece() == 'k') {
+         } else if (endgame && entry.getPiece() == 'k') {
             score += scores.get('k') + pst.get('c')[entry.getSquare()];
+         } else {
+            score += scores.get(entry.getPiece()) + pst.get(entry.getPiece())[entry.getSquare()];
          }
       }
       
