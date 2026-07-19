@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run Chess",
+            "request": "launch",
+            "mainClass": "GUI",
+            "cwd": "${workspaceFolder}/src",
+            "vmArgs": "--module-path /Users/Vaughn/Developer/javafx-sdk-21.0.11/lib --add-modules javafx.controls"
+        }
+
+    ]
+
+}

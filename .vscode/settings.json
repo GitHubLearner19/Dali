@@ -1,0 +1,8 @@
+{
+    "java.project.sourcePaths": [
+        "src"
+    ],
+    "java.project.referencedLibraries": [
+        "/Users/Vaughn/Developer/javafx-sdk-21.0.11/lib/*.jar"
+    ]
+}

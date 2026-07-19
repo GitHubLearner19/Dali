@@ -92,8 +92,8 @@ public class Board {
       grid.setHgap(0);
       grid.setVgap(0);
       
-      players.put('w', "user");
       players.put('b', "computer");
+      players.put('w', "user");
       
       alert.getDialogPane().setStyle("-fx-font-family: Times New Roman");
       
